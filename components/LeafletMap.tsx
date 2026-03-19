@@ -10,6 +10,37 @@ interface LeafletMapProps {
   onPolygonDrawn: (coords: [number, number][]) => void;
 }
 
+type DrawControlConstructor = new (options: {
+  position: "topright" | "topleft" | "bottomright" | "bottomleft";
+  draw: {
+    polygon: {
+      allowIntersection: boolean;
+      showArea: boolean;
+      shapeOptions: {
+        color: string;
+        weight: number;
+      };
+    };
+    polyline: false;
+    rectangle: false;
+    circle: false;
+    circlemarker: false;
+    marker: false;
+  };
+  edit: {
+    featureGroup: L.FeatureGroup;
+  };
+}) => L.Control;
+
+type DrawEventNames = {
+  CREATED: string;
+  EDITED: string;
+  DELETED: string;
+};
+
+type CreatedEvent = L.LeafletEvent & { layer: L.Layer };
+type EditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
+
 export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -34,7 +65,10 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
-    const drawControl = new (L.Control as any).Draw({
+    const DrawControl = (L.Control as unknown as { Draw: DrawControlConstructor }).Draw;
+    const drawEvents = L.Draw.Event as unknown as DrawEventNames;
+
+    const drawControl = new DrawControl({
       position: "topright",
       draw: {
         polygon: {
@@ -56,11 +90,12 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       }
     });
 
-    map.addControl(drawControl as any);
+    map.addControl(drawControl);
 
-    map.on(L.Draw.Event.CREATED as any, (event: any) => {
+    map.on(drawEvents.CREATED, (event: L.LeafletEvent) => {
+      const createdEvent = event as CreatedEvent;
       drawnItems.clearLayers();
-      const layer = event.layer;
+      const layer = createdEvent.layer;
       drawnItems.addLayer(layer);
 
       if (layer instanceof L.Polygon) {
@@ -69,8 +104,9 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       }
     });
 
-    map.on(L.Draw.Event.EDITED as any, (event: any) => {
-      event.layers.eachLayer((layer: any) => {
+    map.on(drawEvents.EDITED, (event: L.LeafletEvent) => {
+      const editedEvent = event as EditedEvent;
+      editedEvent.layers.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Polygon) {
           const latlngs = layer.getLatLngs()[0] as L.LatLng[];
           onPolygonDrawn(latlngs.map((ll) => [ll.lat, ll.lng]));
@@ -78,7 +114,7 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       });
     });
 
-    map.on(L.Draw.Event.DELETED as any, () => onPolygonDrawn([]));
+    map.on(drawEvents.DELETED, () => onPolygonDrawn([]));
 
     return () => {
       map.remove();
