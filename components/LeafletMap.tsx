@@ -32,12 +32,6 @@ type DrawControlConstructor = new (options: {
   };
 }) => L.Control;
 
-type DrawEventNames = {
-  CREATED: string;
-  EDITED: string;
-  DELETED: string;
-};
-
 type CreatedEvent = L.LeafletEvent & { layer: L.Layer };
 type EditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
 
@@ -66,7 +60,6 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
     map.addLayer(drawnItems);
 
     const DrawControl = (L.Control as unknown as { Draw: DrawControlConstructor }).Draw;
-    const drawEvents = L.Draw.Event as unknown as DrawEventNames;
 
     const drawControl = new DrawControl({
       position: "topright",
@@ -92,7 +85,7 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
 
     map.addControl(drawControl);
 
-    map.on(drawEvents.CREATED, (event: L.LeafletEvent) => {
+    map.on("draw:created", (event: L.LeafletEvent) => {
       const createdEvent = event as CreatedEvent;
       drawnItems.clearLayers();
       const layer = createdEvent.layer;
@@ -104,7 +97,7 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       }
     });
 
-    map.on(drawEvents.EDITED, (event: L.LeafletEvent) => {
+    map.on("draw:edited", (event: L.LeafletEvent) => {
       const editedEvent = event as EditedEvent;
       editedEvent.layers.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Polygon) {
@@ -114,7 +107,7 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       });
     });
 
-    map.on(drawEvents.DELETED, () => onPolygonDrawn([]));
+    map.on("draw:deleted", () => onPolygonDrawn([]));
 
     return () => {
       map.remove();
