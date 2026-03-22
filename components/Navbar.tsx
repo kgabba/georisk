@@ -1,7 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { MapPinned } from "lucide-react";
+
+/** Единый размер иконок в шапке (px) — меняй здесь, если нужно крупнее/мельче */
+const ICON_PX = 36;
+
+const iconLinkClass =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-geoblue";
 
 export function Navbar() {
   return (
@@ -14,15 +21,63 @@ export function Navbar() {
           <span className="text-lg font-semibold tracking-tight">GeoRisk</span>
         </Link>
 
-        {/* ЗДЕСЬ МЕНЯТЬ @НИК TELEGRAM */}
-        <a
-          href="https://t.me/pulya102"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-slate-800 transition"
+        <nav
+          className="flex items-center gap-1 sm:gap-2"
+          aria-label="Связаться"
         >
-          <span>Написать в Telegram</span>
-        </a>
+          {/* Telegram — открывает чат с @pulya102 */}
+          <a
+            href="https://t.me/pulya102"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={iconLinkClass}
+            aria-label="Написать в Telegram"
+            title="Telegram: @pulya102"
+          >
+            <Image
+              src="/icons/telegram.png"
+              alt=""
+              width={ICON_PX}
+              height={ICON_PX}
+              className="h-9 w-9 object-contain"
+              priority
+            />
+          </a>
+
+          <a
+            href="https://vk.com/id52806555"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={iconLinkClass}
+            aria-label="ВКонтакте"
+            title="ВКонтакте"
+          >
+            <Image
+              src="/icons/vk.png"
+              alt=""
+              width={ICON_PX}
+              height={ICON_PX}
+              className="h-9 w-9 object-contain"
+            />
+          </a>
+
+          {/* MAX: пока нет публичной ссылки на профиль — звонок/сохранение номера.
+              Когда появится ссылка вида https://max.ru/... — замени href ниже */}
+          <a
+            href="tel:+79167982259"
+            className={iconLinkClass}
+            aria-label="Позвонить или написать в Max (номер)"
+            title="Max / телефон +7 916 798-22-59"
+          >
+            <Image
+              src="/icons/max.png"
+              alt=""
+              width={ICON_PX}
+              height={ICON_PX}
+              className="h-9 w-9 object-contain"
+            />
+          </a>
+        </nav>
       </div>
     </header>
   );
