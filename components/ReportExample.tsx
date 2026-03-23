@@ -31,12 +31,12 @@ const reportPages = [
 export function ReportExample() {
   return (
     <section className="bg-transparent px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-5xl overflow-hidden">
         <div>
-          <h2 className="text-balance text-[40px] font-bold leading-[1.08] tracking-tight text-black sm:text-[48px] lg:text-[56px]">
+          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
             Как выглядит отчёт GeoRisk
           </h2>
-          <p className="mt-4 max-w-4xl text-balance text-[18px] font-normal leading-relaxed text-[#666666] sm:text-[20px]">
+          <p className="mt-1 text-sm text-slate-600">
             Вы получаете понятный PDF-отчёт с картами, оценкой рисков по
             категориям и рекомендациями.
           </p>
@@ -52,7 +52,7 @@ export function ReportExample() {
               768: { slidesPerView: 1.7 },
               1024: { slidesPerView: 2.5 }
             }}
-            className="!overflow-visible"
+            className="w-full"
           >
             {reportPages.map((page, i) => (
               <SwiperSlide key={i}>
