@@ -16,10 +16,6 @@ const cards: ReportCard[] = [
   { title: "Пример для банка/нотариуса" }
 ];
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
 export function ReportCarousel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
