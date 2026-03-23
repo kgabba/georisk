@@ -1,6 +1,6 @@
 "use client";
 
-import { Waves, Zap, Trees, Mountain, CloudRain } from "lucide-react";
+import { Waves, Zap, Trees, Mountain, CloudRain, Landmark } from "lucide-react";
 
 const items = [
   {
@@ -21,12 +21,17 @@ const items = [
   {
     icon: Mountain,
     title: "Уклон и рельеф",
-    description: "Анализируем уклоны, сели и оползневую опасность рельефа."
+    description: "Анализируем уклоны, карст и оползневую опасность рельефа."
   },
   {
     icon: CloudRain,
     title: "Подтопление",
     description: "Оцениваем риски подтопления по многолетним данным и моделям."
+  },
+  {
+    icon: Landmark,
+    title: "Соответствие генплану",
+    description: "Проверяем запреты на строительство по генплану."
   }
 ];
 
