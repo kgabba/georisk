@@ -36,7 +36,7 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
   }
 
   return (
-    <section className="relative z-10 -mt-20 mb-20 px-4 sm:px-6 lg:px-8">
+    <section className="relative z-10 -mt-24 mb-20 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <div className="rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-emerald-50 sm:p-6 lg:p-8">
           <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-baseline sm:justify-between">
@@ -49,7 +49,7 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
           </div>
 
           {/* чуть поднимаем карту вверх в лендинге */}
-          <div className="-mt-[6px]">
+          <div className="-mt-[8px]">
             <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} />
           </div>
 
