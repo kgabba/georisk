@@ -114,8 +114,8 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
     };
   }, [onPolygonDrawn]);
 
+  // Высота карты уменьшена примерно в 1.6 раза
   return (
-    {/* Высота карты уменьшена примерно в 1.6 раза */}
     <div className="h-[200px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-slate-100 shadow-soft sm:h-[240px]">
       <div ref={containerRef} className="h-full w-full" />
     </div>
