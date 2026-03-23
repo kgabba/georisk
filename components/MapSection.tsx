@@ -40,11 +40,18 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
       <div className="mx-auto max-w-5xl">
         <div className="rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-emerald-50 sm:p-6 lg:p-8">
           <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-baseline sm:justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">Или нарисуйте участок на карте прямо сейчас</h2>
-            <p className="text-xs text-slate-500 sm:text-sm">Поддерживаются только полигоны. Приблизьте карту и обведите границы участка.</p>
+            <h2 className="text-base font-semibold text-slate-900 sm:text-xl sm:whitespace-nowrap">
+              Или нарисуйте участок на карте
+            </h2>
+            <p className="text-xs text-slate-500 sm:text-sm sm:max-w-[23rem]">
+              Приблизьте карту и обведите границы участка.
+            </p>
           </div>
 
-          <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} />
+          {/* чуть поднимаем карту вверх в лендинге */}
+          <div className="-mt-[6px]">
+            <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} />
+          </div>
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 sm:mt-5 sm:flex-row sm:items-center">
             <p className="text-xs text-slate-500">После отрисовки полигона нажмите кнопку, чтобы перейти к заявке.</p>
