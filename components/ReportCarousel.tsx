@@ -17,12 +17,33 @@ const cards: ReportCard[] = [
 
 export function ReportCarousel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<Array<HTMLElement | null>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const focusedIndex = hoveredIndex ?? activeIndex;
 
-  const cardBasisClass = "basis-[84%] sm:basis-[58%] lg:basis-[38%]";
+  // Уменьшено примерно на 40% относительно предыдущих размеров
+  const cardBasisClass = "basis-[50%] sm:basis-[35%] lg:basis-[23%]";
+
+  function scrollCardIntoView(index: number) {
+    const container = containerRef.current;
+    const card = cardRefs.current[index];
+    if (!container || !card) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const currentLeft = container.scrollLeft;
+    const deltaToCenter =
+      cardRect.left +
+      cardRect.width / 2 -
+      (containerRect.left + containerRect.width / 2);
+
+    container.scrollTo({
+      left: Math.max(0, currentLeft + deltaToCenter),
+      behavior: "smooth"
+    });
+  }
 
   useEffect(() => {
     const container = containerRef.current;
@@ -79,7 +100,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible px-2 py-10 sm:px-3",
+          "relative z-0 flex snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-visible px-2 py-12 sm:px-3",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -88,7 +109,13 @@ export function ReportCarousel() {
         {renderedCards.map(({ card, idx, scale, opacity }) => (
           <motion.article
             key={card.title}
-            onMouseEnter={() => setHoveredIndex(idx)}
+            ref={(el) => {
+              cardRefs.current[idx] = el;
+            }}
+            onMouseEnter={() => {
+              setHoveredIndex(idx);
+              scrollCardIntoView(idx);
+            }}
             onMouseLeave={() => setHoveredIndex(null)}
             animate={{ scale, opacity }}
             transition={{ duration: 0.34, ease: "easeOut" }}
@@ -96,7 +123,7 @@ export function ReportCarousel() {
               "snap-center shrink-0",
               cardBasisClass,
               "relative origin-center",
-              idx === focusedIndex ? "z-30" : "z-10",
+              idx === focusedIndex ? "z-20" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
             aria-label={card.title}
