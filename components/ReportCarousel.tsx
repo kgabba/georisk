@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 type ReportCard = {
@@ -18,13 +18,10 @@ const cards: ReportCard[] = [
 export function ReportCarousel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const focusedIndex = hoveredIndex ?? activeIndex;
-
-  // Уменьшено примерно на 40% относительно предыдущих размеров
-  const cardBasisClass = "basis-[50%] sm:basis-[35%] lg:basis-[23%]";
+  // Увеличено на ~10% относительно текущего состояния
+  const cardBasisClass = "basis-[55%] sm:basis-[39%] lg:basis-[25%]";
 
   function scrollCardIntoView(index: number) {
     const container = containerRef.current;
@@ -45,54 +42,20 @@ export function ReportCarousel() {
     });
   }
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const onScroll = () => {
-      const children = Array.from(container.children) as HTMLElement[];
-      if (!children.length) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const containerCenter = containerRect.left + containerRect.width / 2;
-
-      let nearest = 0;
-      let bestDist = Number.POSITIVE_INFINITY;
-
-      children.forEach((child, idx) => {
-        const rect = child.getBoundingClientRect();
-        const center = rect.left + rect.width / 2;
-        const dist = Math.abs(center - containerCenter);
-        if (dist < bestDist) {
-          bestDist = dist;
-          nearest = idx;
-        }
-      });
-
-      setActiveIndex((prev) => (prev === nearest ? prev : nearest));
-    };
-
-    onScroll();
-    container.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      container.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
-
   const renderedCards = useMemo(
     () =>
       cards.map((card, idx) => {
-        const distance = Math.abs(idx - focusedIndex);
-        const scale =
-          distance === 0 ? 1.22 : distance === 1 ? 0.9 : 0.85;
-        const opacity =
-          distance === 0 ? 1 : distance === 1 ? 0.8 : 0.75;
+        if (hoveredIndex === null) {
+          return { card, idx, scale: 1, opacity: 1, isFocused: false };
+        }
 
-        return { card, idx, scale, opacity };
+        const isFocused = idx === hoveredIndex;
+        const scale = isFocused ? 1.25 : 0.85;
+        const opacity = isFocused ? 1 : 0.75;
+
+        return { card, idx, scale, opacity, isFocused };
       }),
-    [focusedIndex]
+    [hoveredIndex]
   );
 
   return (
@@ -100,13 +63,13 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "relative z-0 flex snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-visible px-2 py-12 sm:px-3",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 py-12 sm:px-3",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         ].join(" ")}
       >
-        {renderedCards.map(({ card, idx, scale, opacity }) => (
+        {renderedCards.map(({ card, idx, scale, opacity, isFocused }) => (
           <motion.article
             key={card.title}
             ref={(el) => {
@@ -123,7 +86,7 @@ export function ReportCarousel() {
               "snap-center shrink-0",
               cardBasisClass,
               "relative origin-center",
-              idx === focusedIndex ? "z-20" : "z-10",
+              isFocused ? "z-20" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
             aria-label={card.title}
