@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
 
 type ReportCard = {
   title: string;
@@ -80,7 +79,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "flex snap-x snap-mandatory gap-4 overflow-x-auto px-2 py-4 sm:px-3",
+          "flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible px-2 py-10 sm:px-3",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -96,24 +95,28 @@ export function ReportCarousel() {
             className={[
               "snap-center shrink-0",
               cardBasisClass,
-              "origin-center",
+              "relative origin-center",
+              idx === focusedIndex ? "z-30" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
             aria-label={card.title}
           >
             <div className="relative overflow-hidden rounded-2xl">
-              <div className="aspect-[4/3] w-full bg-[linear-gradient(135deg,#eaf7f1_0%,#f0f7f4_45%,#e6eefc_100%)] p-4 sm:p-5">
-                <div className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm">
-                  <Plus className="h-4 w-4 text-slate-700" />
-                </div>
-
-                <div className="flex h-full items-center justify-center">
-                  {/* Лист A4 с острыми углами */}
-                  <div className="aspect-[210/297] h-[94%] border border-slate-300/90 bg-white/85 p-3 shadow-sm">
-                    <p className="text-sm font-medium text-slate-500">
-                      Страница {idx + 1}
-                    </p>
+              {/* Карточка сделана более вертикальной, близко к A4 */}
+              <div className="relative aspect-[210/297] w-full bg-[linear-gradient(135deg,#eaf7f1_0%,#f0f7f4_45%,#e6eefc_100%)]">
+                {/* Лист A4 внутри блока: занимает ~95% площади, острые углы */}
+                <div className="absolute inset-[2.5%] border border-slate-300/90 bg-white/85 p-3 shadow-sm">
+                  <p className="text-sm font-medium text-slate-500">
+                    Страница {idx + 1}
+                  </p>
+                  <div className="mt-3 h-2 w-28 rounded bg-slate-200" />
+                  <div className="mt-2 h-2 w-4/5 rounded bg-slate-200" />
+                  <div className="mt-2 h-2 w-3/5 rounded bg-slate-200" />
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="h-12 rounded bg-slate-100" />
+                    <div className="h-12 rounded bg-slate-100" />
                   </div>
+                  <div className="mt-3 h-16 rounded bg-slate-100" />
                 </div>
               </div>
 
