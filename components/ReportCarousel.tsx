@@ -23,7 +23,7 @@ export function ReportCarousel() {
 
   const focusedIndex = hoveredIndex ?? activeIndex;
 
-  const cardBasisClass = "basis-[84%] sm:basis-[62%] lg:basis-[41%]";
+  const cardBasisClass = "basis-[84%] sm:basis-[58%] lg:basis-[38%]";
 
   useEffect(() => {
     const container = containerRef.current;
@@ -80,7 +80,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 py-4 sm:px-6",
+          "flex snap-x snap-mandatory gap-4 overflow-x-auto px-2 py-4 sm:px-3",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -107,10 +107,13 @@ export function ReportCarousel() {
                   <Plus className="h-4 w-4 text-slate-700" />
                 </div>
 
-                <div className="h-full rounded-xl border border-slate-200/80 bg-white/70 p-4">
-                  <p className="text-sm font-medium text-slate-500">
-                    Страница {idx + 1}
-                  </p>
+                <div className="flex h-full items-center justify-center">
+                  {/* Лист A4 с острыми углами */}
+                  <div className="aspect-[210/297] h-[94%] border border-slate-300/90 bg-white/85 p-3 shadow-sm">
+                    <p className="text-sm font-medium text-slate-500">
+                      Страница {idx + 1}
+                    </p>
+                  </div>
                 </div>
               </div>
 
