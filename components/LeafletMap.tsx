@@ -114,9 +114,9 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
     };
   }, [onPolygonDrawn]);
 
-  // Высота карты уменьшена примерно в 1.6 раза
+  // Увеличили карту пропорционально расширенным блокам
   return (
-    <div className="h-[320px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-slate-100 shadow-soft sm:h-[380px]">
+    <div className="h-[380px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-slate-100 shadow-soft sm:h-[450px]">
       <div ref={containerRef} className="h-full w-full" />
     </div>
   );
