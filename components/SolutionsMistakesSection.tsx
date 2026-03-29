@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { MapPinned } from "lucide-react";
 
 type SolutionCard = {
   tag: string;
@@ -59,17 +59,18 @@ export function SolutionsMistakesSection() {
           {cards.map((card) => (
             <article
               key={card.tag}
-              className="group relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl bg-[linear-gradient(148deg,#f0f7f4_0%,#e8f5ef_42%,#e6f0fa_100%)] p-5 shadow-md ring-1 ring-emerald-100/60 transition duration-300 ease-out hover:shadow-lg sm:min-h-[440px] sm:p-6"
+              className="group relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl bg-[linear-gradient(148deg,#f0f7f4_0%,#e8f5ef_42%,#e6f0fa_100%)] p-5 shadow-md ring-1 ring-emerald-100/60 transition duration-300 ease-out hover:shadow-[0_12px_36px_-8px_rgba(15,23,42,0.22)] hover:ring-slate-300/40 sm:min-h-[440px] sm:p-6"
             >
-              <button
-                type="button"
-                className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-slate-200/80 transition hover:bg-white"
-                aria-label="Подробнее"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-              </button>
+              <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 sm:right-4 sm:top-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm sm:h-9 sm:w-9">
+                  <MapPinned className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <span className="text-xs font-semibold tracking-tight text-slate-900 sm:text-sm">
+                  GeoRisk
+                </span>
+              </div>
 
-              <p className="pr-10 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <p className="pr-[5.5rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:pr-32">
                 {card.tag}
               </p>
 
