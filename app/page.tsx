@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { MapSection } from "@/components/MapSection";
+import { MistakesSection } from "@/components/MistakesSection";
 import { LeadForm } from "@/components/LeadForm";
 import { WhatWeCheck } from "@/components/WhatWeCheck";
 import { ReportExample } from "@/components/ReportExample";
@@ -20,6 +21,7 @@ export default function HomePage() {
       <main>
         <Hero onCadastreCaptured={setCadastre} />
         <MapSection onPolygonReady={setPolygonCoords} />
+        <MistakesSection />
         <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
         <WhatWeCheck />
         <ReportExample />
