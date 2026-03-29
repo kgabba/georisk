@@ -47,8 +47,9 @@ export function SolutionsMistakesSection() {
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
-              Каждый месяц люди теряют 1–5 млн ₽ на участках, которые казались
-              идеальными
+              Каждый месяц люди теряют 1–5 млн ₽ на участках,
+              <br />
+              которые казались идеальными
             </h2>
             <p className="mt-2 text-base text-slate-600">
               Вот 4 самые частые ошибки, которые мы находим до того, как вы
@@ -77,9 +78,6 @@ export function SolutionsMistakesSection() {
                 {card.title}
               </h3>
               <p className="mt-2 text-sm text-slate-600">{card.description}</p>
-              <p className="mt-2 text-sm text-slate-500">
-                Реальная потеря: {card.loss}
-              </p>
 
               <div className="mt-auto pt-6">
                 <div className="min-h-[128px] rounded-xl border border-slate-200/90 bg-white/55 p-4 shadow-inner backdrop-blur-[1px]">
@@ -97,6 +95,9 @@ export function SolutionsMistakesSection() {
                     </p>
                   </div>
                 </div>
+                <p className="mt-3 text-sm text-slate-500">
+                  Реальная потеря: {card.loss}
+                </p>
               </div>
             </article>
           ))}
