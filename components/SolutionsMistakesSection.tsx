@@ -42,18 +42,20 @@ const cards: SolutionCard[] = [
 
 export function SolutionsMistakesSection() {
   return (
-    <section className="bg-transparent px-4 pb-20 pt-6 sm:px-6 lg:px-8">
+    <section className="bg-transparent px-4 pb-16 pt-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-12 max-w-4xl">
-          <h2 className="text-balance text-[clamp(1.75rem,4.2vw,2.75rem)] font-bold leading-[1.08] tracking-tight text-slate-900">
-            Каждый месяц люди теряют 1–5 млн ₽ на участках, которые казались
-            идеальными
-          </h2>
-          <p className="mt-5 max-w-3xl text-lg font-normal leading-relaxed text-slate-600 sm:text-xl">
-            Вот 4 самые частые ошибки, которые мы находим до того, как вы
-            потеряете деньги
-          </p>
-        </header>
+        <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
+              Каждый месяц люди теряют 1–5 млн ₽ на участках, которые казались
+              идеальными
+            </h2>
+            <p className="mt-2 text-base text-slate-600">
+              Вот 4 самые частые ошибки, которые мы находим до того, как вы
+              потеряете деньги
+            </p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {cards.map((card) => (
@@ -67,17 +69,15 @@ export function SolutionsMistakesSection() {
                 </div>
               </div>
 
-              <p className="pr-11 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:pr-12">
+              <p className="pr-11 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:pr-12">
                 {card.tag}
               </p>
 
-              <h3 className="mt-4 text-lg font-bold leading-snug tracking-tight text-slate-900 sm:text-xl">
+              <h3 className="mt-4 text-base font-semibold text-slate-900">
                 {card.title}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                {card.description}
-              </p>
-              <p className="mt-4 text-xs font-medium text-slate-500">
+              <p className="mt-2 text-sm text-slate-600">{card.description}</p>
+              <p className="mt-2 text-sm text-slate-500">
                 Реальная потеря: {card.loss}
               </p>
 
@@ -92,7 +92,7 @@ export function SolutionsMistakesSection() {
                       <div className="h-10 w-1/5 rounded-sm bg-slate-300/55" />
                     </div>
                     <div className="h-px w-full bg-slate-200/80" />
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Место для мини-графики или иконки
                     </p>
                   </div>
