@@ -47,9 +47,7 @@ export function SolutionsMistakesSection() {
             <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
               Каждый месяц люди теряют 1–5 млн ₽
               <br />
-              на участках,
-              <br />
-              которые казались идеальными
+              на участках, которые казались идеальными
             </h2>
             <p className="mt-2 text-base text-slate-600">
               Вот 4 самые частые ошибки, которые мы находим до того, как вы
