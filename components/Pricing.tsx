@@ -1,8 +1,13 @@
 "use client";
 
-export function Pricing() {
+export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {}) {
   return (
-    <section className="bg-transparent px-4 pb-16 pt-4 sm:px-6 lg:px-8">
+    <section
+      className={[
+        "bg-transparent",
+        mode === "panel" ? "px-0 pb-0 pt-0" : "px-4 pb-16 pt-4 sm:px-6 lg:px-8"
+      ].join(" ")}
+    >
       <div className="mx-auto max-w-5xl">
         <div className="rounded-3xl bg-white/90 p-6 shadow-soft ring-1 ring-emerald-50">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">Специальная цена на запуск</p>

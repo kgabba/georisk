@@ -26,8 +26,12 @@ export default function HomePage() {
         <WhatWeCheck />
         <ReportExample />
         <EndSemrushPanel>
-          <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
-          <Pricing />
+          <LeadForm
+            initialCadastre={cadastre}
+            polygonCoords={polygonCoords}
+            mode="panel"
+          />
+          <Pricing mode="panel" />
         </EndSemrushPanel>
       </main>
       <Footer />

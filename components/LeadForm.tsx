@@ -16,9 +16,14 @@ type LeadFormValues = z.infer<typeof leadSchema>;
 interface LeadFormProps {
   initialCadastre?: string;
   polygonCoords?: [number, number][] | null;
+  mode?: "default" | "panel";
 }
 
-export function LeadForm({ initialCadastre, polygonCoords }: LeadFormProps) {
+export function LeadForm({
+  initialCadastre,
+  polygonCoords,
+  mode = "default"
+}: LeadFormProps) {
   const {
     register,
     handleSubmit,
@@ -48,7 +53,15 @@ export function LeadForm({ initialCadastre, polygonCoords }: LeadFormProps) {
   }
 
   return (
-    <section id="lead-form" className="bg-transparent px-4 pb-20 pt-4 sm:px-6 lg:px-8">
+    <section
+      id="lead-form"
+      className={[
+        "bg-transparent",
+        mode === "panel"
+          ? "px-0 pb-0 pt-0"
+          : "px-4 pb-20 pt-4 sm:px-6 lg:px-8"
+      ].join(" ")}
+    >
       <div className="mx-auto max-w-xl rounded-3xl bg-white/90 p-5 shadow-soft ring-1 ring-emerald-50 sm:p-7 lg:p-8">
         <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Оставьте заявку на экспертный отчёт</h2>
         <p className="mt-1 text-sm text-slate-600">
