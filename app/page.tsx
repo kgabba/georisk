@@ -22,9 +22,9 @@ export default function HomePage() {
         <Hero onCadastreCaptured={setCadastre} />
         <MapSection onPolygonReady={setPolygonCoords} />
         <SolutionsMistakesSection />
-        <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
         <WhatWeCheck />
         <ReportExample />
+        <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
         <Pricing />
       </main>
       <Footer />
