@@ -9,6 +9,7 @@ import { LeadForm } from "@/components/LeadForm";
 import { WhatWeCheck } from "@/components/WhatWeCheck";
 import { ReportExample } from "@/components/ReportExample";
 import { Pricing } from "@/components/Pricing";
+import { EndSemrushPanel } from "@/components/EndSemrushPanel";
 import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
@@ -24,8 +25,10 @@ export default function HomePage() {
         <SolutionsMistakesSection />
         <WhatWeCheck />
         <ReportExample />
-        <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
-        <Pricing />
+        <EndSemrushPanel>
+          <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
+          <Pricing />
+        </EndSemrushPanel>
       </main>
       <Footer />
     </div>
