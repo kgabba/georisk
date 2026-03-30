@@ -5,10 +5,9 @@ import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { MapSection } from "@/components/MapSection";
 import { SolutionsMistakesSection } from "@/components/SolutionsMistakesSection";
-import { LeadForm } from "@/components/LeadForm";
 import { WhatWeCheck } from "@/components/WhatWeCheck";
 import { ReportExample } from "@/components/ReportExample";
-import { Pricing } from "@/components/Pricing";
+import { StickyLeadPrice } from "@/components/StickyLeadPrice";
 import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
@@ -24,8 +23,7 @@ export default function HomePage() {
         <SolutionsMistakesSection />
         <WhatWeCheck />
         <ReportExample />
-        <LeadForm initialCadastre={cadastre} polygonCoords={polygonCoords} />
-        <Pricing />
+        <StickyLeadPrice initialCadastre={cadastre} polygonCoords={polygonCoords} />
       </main>
       <Footer />
     </div>
