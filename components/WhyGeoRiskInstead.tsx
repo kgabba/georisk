@@ -130,33 +130,31 @@ export function WhyGeoRiskInstead() {
   return (
     <section className="bg-transparent px-4 pb-10 pt-2 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 max-w-4xl">
-          <h2 className="text-balance text-[48px] font-bold leading-[1.06] tracking-tight text-slate-900 sm:text-[52px]">
-            Зачем платить юристу 10–40 тыс. ₽, если можно получить то
-            же самое за 870 ₽?
-          </h2>
-          <p className="mt-4 max-w-3xl text-[18px] leading-relaxed text-[#6b7280] sm:text-[18px]">
-            Мы делаем именно то, за что юристы берут большие деньги — только быстрее, дешевле и понятнее.
-          </p>
-        </div>
-
         <div
           ref={ref}
-          className="grid grid-cols-1 gap-0 rounded-3xl overflow-hidden border border-emerald-100/60 bg-mint-50 sm:grid-cols-[3fr_2fr]"
+          className="grid grid-cols-1 gap-0 rounded-none overflow-hidden border border-emerald-100/60 bg-mint-50 sm:grid-cols-[3fr_2fr]"
         >
           {/* Левая колонка */}
-          <div className="bg-mint-50 px-6 py-10 sm:px-10">
+          <div className="bg-slate-900 px-6 py-10 sm:px-10">
             <div className="space-y-6">
+              <h2 className="text-balance text-[40px] font-bold leading-[1.08] tracking-tight text-white sm:text-[48px]">
+                Зачем платить юристу 10–40 тыс. ₽, если можно получить то
+                же самое за 870 ₽?
+              </h2>
+              <p className="mt-1 max-w-2xl text-[18px] leading-relaxed text-slate-200">
+                Мы делаем именно то, за что юристы берут большие деньги — только быстрее, дешевле и понятнее.
+              </p>
+
               {benefits.map((b) => (
                 <div key={b.title} className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-[#2563eb] ring-1 ring-emerald-100/70 shadow-sm">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-[#2563eb] ring-1 ring-white/10 shadow-sm">
                     <b.icon className="h-6 w-6" strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="text-lg font-semibold text-slate-900">
+                    <div className="text-lg font-semibold text-white">
                       {b.title}
                     </div>
-                    <div className="mt-1 text-base text-slate-700 leading-relaxed">
+                    <div className="mt-1 text-base text-slate-200 leading-relaxed">
                       {b.text}
                     </div>
                   </div>
