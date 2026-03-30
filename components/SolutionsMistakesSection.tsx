@@ -95,7 +95,7 @@ export function SolutionsMistakesSection() {
                   <img
                     src={imageSrc}
                     alt=""
-                    className="block h-full w-full object-cover"
+                    className="block h-full w-full bg-[#ffffff] object-cover object-[50%_12%]"
                   />
                 </div>
                 <p className="mt-3 text-xs font-medium leading-tight text-slate-500 sm:text-sm whitespace-nowrap">
