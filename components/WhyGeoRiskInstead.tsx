@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Zap, Landmark, MapPinned } from "lucide-react";
 
@@ -123,7 +124,8 @@ function GeoIllustration({ inView }: { inView: boolean }) {
 }
 
 export function WhyGeoRiskInstead() {
-  const [ref, inView] = useInView({ triggerOnce: true, amount: 0.25 });
+  const ref = useRef<HTMLDivElement | null>(null);
+  const inView = useInView(ref, { once: true, amount: 0.25 });
 
   return (
     <section className="bg-transparent px-4 pb-10 pt-2 sm:px-6 lg:px-8">
