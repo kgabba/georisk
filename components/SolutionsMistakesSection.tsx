@@ -57,7 +57,17 @@ export function SolutionsMistakesSection() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-          {cards.map((card) => (
+          {cards.map((card, idx) => {
+            const imageSrc =
+              idx === 0
+                ? "/report-page-3.png" // водоохранная зона
+                : idx === 1
+                  ? "/report-page-1.png" // ЛЭП
+                  : idx === 2
+                    ? "/report-page-4.png" // генплан
+                    : "/report-page-2.png"; // подтопление/рельеф
+
+            return (
             <article
               key={card.tag}
               className="group relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl bg-[linear-gradient(148deg,#f0f7f4_0%,#e8f5ef_42%,#e6f0fa_100%)] p-5 shadow-md ring-1 ring-emerald-100/60 transition duration-300 ease-out hover:shadow-[0_12px_36px_-8px_rgba(15,23,42,0.22)] hover:ring-slate-300/40 sm:min-h-[440px] sm:p-6"
@@ -81,27 +91,20 @@ export function SolutionsMistakesSection() {
               </p>
 
               <div className="mt-auto pt-6">
-                <div className="min-h-[128px] rounded-xl border border-slate-200/90 bg-white/55 p-4 shadow-inner backdrop-blur-[1px]">
-                  <div className="flex h-full flex-col justify-end gap-2">
-                    <div className="flex items-end gap-1">
-                      <div className="h-8 w-1/5 rounded-sm bg-slate-300/70" />
-                      <div className="h-12 w-1/5 rounded-sm bg-slate-300/60" />
-                      <div className="h-6 w-1/5 rounded-sm bg-slate-300/50" />
-                      <div className="h-14 w-1/5 rounded-sm bg-geoblue/25" />
-                      <div className="h-10 w-1/5 rounded-sm bg-slate-300/55" />
-                    </div>
-                    <div className="h-px w-full bg-slate-200/80" />
-                    <p className="text-xs text-slate-400">
-                      Место для мини-графики или иконки
-                    </p>
-                  </div>
+                <div className="min-h-[128px] overflow-hidden rounded-xl border border-slate-200/90 bg-transparent shadow-inner">
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    className="block h-full w-full object-cover"
+                  />
                 </div>
                 <p className="mt-3 text-xs font-medium leading-tight text-slate-500 sm:text-sm whitespace-nowrap">
                   Потери: {card.loss}
                 </p>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
