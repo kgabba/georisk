@@ -1,18 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { MapPinned, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 
 export function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-emerald-100/70 bg-mint-50/80 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-3">
-          <Link href="#top" className="flex items-center gap-2 text-slate-900">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm">
-              <MapPinned className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">GeoRisk</span>
+          <Link
+            href="#top"
+            className="inline-flex items-center gap-2 font-sans text-[1.0625rem] font-medium leading-none text-[#111827] sm:gap-2.5 sm:text-xl"
+          >
+            <span className="font-extrabold tracking-[-0.045em] sm:tracking-[-0.04em]">
+              GeoRisk
+            </span>
+            <Image
+              src="/logo-mark.png"
+              alt=""
+              width={640}
+              height={640}
+              className="h-[0.92em] w-auto shrink-0 translate-y-[0.02em] object-contain object-center mix-blend-multiply [image-rendering:crisp-edges]"
+              priority
+              aria-hidden
+            />
           </Link>
 
           <div className="hidden items-center md:flex md:ml-6 lg:ml-8">
