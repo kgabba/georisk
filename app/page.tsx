@@ -10,7 +10,6 @@ import { WhatWeCheck } from "@/components/WhatWeCheck";
 import { ReportExample } from "@/components/ReportExample";
 import { Pricing } from "@/components/Pricing";
 import { EndSemrushPanel } from "@/components/EndSemrushPanel";
-import { WhyGeoRiskInstead } from "@/components/WhyGeoRiskInstead";
 import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
@@ -26,7 +25,6 @@ export default function HomePage() {
         <SolutionsMistakesSection />
         <WhatWeCheck />
         <ReportExample />
-        <WhyGeoRiskInstead />
         <EndSemrushPanel>
           <LeadForm
             initialCadastre={cadastre}
