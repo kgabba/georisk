@@ -29,14 +29,14 @@ export function Navbar() {
 
           <div className="hidden items-center md:flex md:ml-6 lg:ml-8">
             <a
-              href="tel:+79167982259"
+              href="tel:+79691111635"
               className="inline-flex items-center gap-2 whitespace-nowrap"
-              aria-label="Позвонить +7 (916) 798-22-59"
+              aria-label="Позвонить +7(969)1111-635"
             >
               <Phone className="h-[18px] w-[18px] text-slate-800" />
               {/* ЗДЕСЬ МЕНЯТЬ НОМЕР ТЕЛЕФОНА */}
               <span className="text-base font-semibold text-[#1a1a1a]">
-                +7 (916) 798-22-59
+                +7(969)1111-635
               </span>
               <span className="text-sm text-[#666666]">Бесплатная консультация</span>
             </a>
@@ -54,12 +54,12 @@ export function Navbar() {
         </div>
 
         <a
-          href="tel:+79167982259"
+          href="tel:+79691111635"
           className="mt-2 inline-flex items-center gap-2 md:hidden"
-          aria-label="Позвонить +7 (916) 798-22-59"
+          aria-label="Позвонить +7(969)1111-635"
         >
           <Phone className="h-4 w-4 text-slate-800" />
-          <span className="text-[15px] font-semibold text-[#1a1a1a]">+7 (916) 798-22-59</span>
+          <span className="text-[15px] font-semibold text-[#1a1a1a]">+7(969)1111-635</span>
           <span className="text-[13px] text-[#666666]">Бесплатная консультация</span>
         </a>
       </div>
