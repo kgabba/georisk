@@ -137,14 +137,6 @@ export function WhyGeoRiskInstead() {
           {/* Левая колонка */}
           <div className="bg-slate-900 px-6 py-10 sm:px-10">
             <div className="space-y-6">
-              <h2 className="text-balance text-[40px] font-bold leading-[1.08] tracking-tight text-white sm:text-[48px]">
-                Зачем платить юристу 10–40 тыс. ₽, если можно получить то
-                же самое за 870 ₽?
-              </h2>
-              <p className="mt-1 max-w-2xl text-[18px] leading-relaxed text-slate-200">
-                Мы делаем именно то, за что юристы берут большие деньги — только быстрее, дешевле и понятнее.
-              </p>
-
               {benefits.map((b) => (
                 <div key={b.title} className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-[#2563eb] ring-1 ring-white/10 shadow-sm">
