@@ -7,11 +7,11 @@ import { Phone } from "lucide-react";
 export function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-emerald-100/70 bg-mint-50/80 backdrop-blur-md">
-      <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-3 py-2 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between gap-3">
           <Link
             href="#top"
-            className="inline-flex items-center gap-1.5 font-sans text-[1.0625rem] font-medium leading-none text-[#111827] sm:gap-2 sm:text-xl"
+            className="inline-flex items-center gap-1 font-sans text-[1.0625rem] font-medium leading-none text-[#111827] sm:gap-1.5 sm:text-xl"
           >
             <span className="font-extrabold tracking-[-0.045em] sm:tracking-[-0.04em]">
               GeoRisk
