@@ -63,7 +63,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 py-12 sm:px-3",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 py-16 sm:px-3",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -86,12 +86,12 @@ export function ReportCarousel() {
               "snap-center shrink-0",
               cardBasisClass,
               "relative origin-center",
-              isFocused ? "z-20" : "z-10",
+              isFocused ? "z-30" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
             aria-label={card.title}
           >
-            <div className="relative overflow-hidden rounded-2xl">
+            <div className="relative overflow-visible rounded-2xl">
               {/* Карточка сделана более вертикальной, близко к A4 */}
               <div className="relative aspect-[210/297] w-full bg-[linear-gradient(135deg,#eaf7f1_0%,#f0f7f4_45%,#e6eefc_100%)]">
                 {/* Лист A4 внутри блока: занимает ~95% площади, острые углы */}
@@ -120,8 +120,6 @@ export function ReportCarousel() {
         ))}
       </div>
 
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-mint-50 to-transparent sm:w-12" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-mint-50 to-transparent sm:w-12" />
     </div>
   );
 }
