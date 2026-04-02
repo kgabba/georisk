@@ -69,17 +69,16 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
             <p className="text-xs text-slate-600">или нарисуйте полигон ниже</p>
           </form>
 
-          {/* Мягкий переход “мята -> слегка фиолетовый” под полем ввода */}
+          {/* Плавный цветовой переход под полем ввода: лайм-мята -> мягкий фиолетовый */}
           <div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-full h-[280px] w-screen -translate-x-1/2 opacity-90"
+            className="pointer-events-none absolute left-1/2 top-full h-[320px] w-screen -translate-x-1/2"
           >
             <div
               className="h-full w-full"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(90deg, rgba(16,185,129,0.22) 0px, rgba(16,185,129,0.22) 2px, rgba(168,85,247,0.18) 2px, rgba(168,85,247,0.18) 4px), linear-gradient(180deg, rgba(240,247,244,0.0) 0%, rgba(240,247,244,0.75) 35%, rgba(234,224,255,1) 100%)",
-                backgroundBlendMode: "multiply"
+                  "radial-gradient(120% 70% at 50% 0%, rgba(190,242,100,0.26) 0%, rgba(167,243,208,0.16) 45%, rgba(240,247,244,0) 72%), linear-gradient(180deg, rgba(187,247,208,0.42) 0%, rgba(167,243,208,0.30) 34%, rgba(196,181,253,0.28) 68%, rgba(221,214,254,0.5) 100%)"
               }}
             />
           </div>
