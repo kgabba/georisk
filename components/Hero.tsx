@@ -45,45 +45,25 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
           </p>
         </div>
 
-        <div className="relative mt-10 w-full max-w-2xl">
-          <form
-            onSubmit={handleSubmit}
-            className="relative z-10 w-full max-w-2xl space-y-3"
-          >
-            <div className="hero-input flex items-center gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Введите кадастровый номер (например 50:21:0040211:123)"
-                className="text-sm sm:text-base"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {loading ? "Проверяем..." : "Проверить"}
-              </button>
-            </div>
-            <p className="text-xs text-slate-600">или нарисуйте полигон ниже</p>
-          </form>
-
-          {/* Мягкий переход “мята -> слегка фиолетовый” под полем ввода */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-full h-[280px] w-screen -translate-x-1/2 opacity-90"
-          >
-            <div
-              className="h-full w-full"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(90deg, rgba(16,185,129,0.22) 0px, rgba(16,185,129,0.22) 2px, rgba(168,85,247,0.18) 2px, rgba(168,85,247,0.18) 4px), linear-gradient(180deg, rgba(240,247,244,0.0) 0%, rgba(240,247,244,0.75) 35%, rgba(234,224,255,1) 100%)",
-                backgroundBlendMode: "multiply"
-              }}
+        <form onSubmit={handleSubmit} className="mt-10 w-full max-w-2xl space-y-3">
+          <div className="hero-input flex items-center gap-3">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Введите кадастровый номер (например 50:21:0040211:123)"
+              className="text-sm sm:text-base"
             />
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loading ? "Проверяем..." : "Проверить"}
+            </button>
           </div>
-        </div>
+          <p className="text-xs text-slate-600">или нарисуйте полигон ниже</p>
+        </form>
       </div>
     </section>
   );
