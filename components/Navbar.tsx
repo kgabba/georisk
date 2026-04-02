@@ -21,7 +21,7 @@ export function Navbar() {
               alt=""
               width={640}
               height={640}
-              className="h-[22px] w-auto shrink-0 translate-y-[1px] object-contain object-center mix-blend-multiply [image-rendering:crisp-edges] sm:h-[24px]"
+              className="h-[22px] w-auto shrink-0 translate-y-0 scale-[1.7] object-contain object-center mix-blend-multiply [image-rendering:crisp-edges] sm:h-[24px]"
               priority
               aria-hidden
             />
