@@ -11,7 +11,7 @@ export function Navbar() {
         <div className="flex items-center justify-between gap-3">
           <Link
             href="#top"
-            className="inline-flex items-center gap-2 font-sans text-[1.0625rem] font-medium leading-none text-[#111827] sm:gap-2.5 sm:text-xl"
+            className="inline-flex items-center gap-1.5 font-sans text-[1.0625rem] font-medium leading-none text-[#111827] sm:gap-2 sm:text-xl"
           >
             <span className="font-extrabold tracking-[-0.045em] sm:tracking-[-0.04em]">
               GeoRisk
@@ -21,7 +21,7 @@ export function Navbar() {
               alt=""
               width={640}
               height={640}
-              className="h-[2.8em] w-auto shrink-0 translate-y-[0.03em] object-contain object-center mix-blend-multiply [image-rendering:crisp-edges]"
+              className="h-[22px] w-auto shrink-0 translate-y-[1px] object-contain object-center mix-blend-multiply [image-rendering:crisp-edges] sm:h-[24px]"
               priority
               aria-hidden
             />
