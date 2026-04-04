@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 type ReportCard = {
   title: string;
@@ -34,6 +34,16 @@ export function ReportCarousel() {
     document.body.style.overflow = "hidden";
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setLightboxIndex((i) =>
+          i === null ? null : (i - 1 + cards.length) % cards.length
+        );
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setLightboxIndex((i) => (i === null ? null : (i + 1) % cards.length));
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => {
@@ -142,7 +152,7 @@ export function ReportCarousel() {
 
       {lightboxIndex !== null ? (
         <div
-          className="fixed inset-0 z-[45] flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[45] overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="report-lightbox-title"
@@ -154,40 +164,64 @@ export function ReportCarousel() {
             onClick={() => setLightboxIndex(null)}
           />
 
-          <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-[min(88vw,56rem)] flex-col items-center overflow-y-auto overscroll-contain">
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(null)}
-              className="absolute right-0 top-0 z-20 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:-right-1 sm:-top-1"
-              aria-label="Закрыть"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxIndex(null);
+            }}
+            className="absolute right-3 top-3 z-20 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:right-4 sm:top-4"
+            aria-label="Закрыть"
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxIndex((i) =>
+                i === null ? null : (i - 1 + cards.length) % cards.length
+              );
+            }}
+            className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:left-3 sm:p-3"
+            aria-label="Предыдущий слайд"
+          >
+            <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxIndex((i) => (i === null ? null : (i + 1) % cards.length));
+            }}
+            className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:right-3 sm:p-3"
+            aria-label="Следующий слайд"
+          >
+            <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
+          </button>
+
+          <h2 id="report-lightbox-title" className="sr-only">
+            {cards[lightboxIndex]!.title}
+          </h2>
+
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-12 py-10 sm:px-16 sm:py-12">
+            <div
+              className="pointer-events-auto relative h-[min(92dvh,calc(94vw*297/210))] w-[min(94vw,calc(92dvh*210/297))]"
+              onMouseDown={(e) => e.stopPropagation()}
+              role="presentation"
             >
-              <X className="h-5 w-5" strokeWidth={2} />
-            </button>
-
-            <h2 id="report-lightbox-title" className="sr-only">
-              {cards[lightboxIndex]!.title} — фрагмент отчёта
-            </h2>
-
-            <div className="relative mt-10 h-[min(76vh,calc(86vw*297/210))] w-[min(86vw,calc(76vh*210/297))] shrink-0 sm:mt-8">
               <Image
+                key={cards[lightboxIndex]!.imageSrc}
                 src={cards[lightboxIndex]!.imageSrc}
                 alt=""
                 fill
                 className="rounded-2xl object-contain object-center shadow-2xl ring-1 ring-white/15"
-                sizes="(max-width: 768px) 86vw, min(86vw, 56rem)"
+                sizes="94vw"
+                draggable={false}
               />
             </div>
-
-            <p className="mt-4 max-w-md text-center text-sm leading-snug text-white/90 sm:mt-5 sm:text-base">
-              Фрагмент реального PDF-отчёта GeoRisk. Получите полный документ по вашему участку за пару минут.
-            </p>
-            <a
-              href="#lead-form"
-              onClick={() => setLightboxIndex(null)}
-              className="mt-3 mb-1 inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-emerald-50"
-            >
-              Получить отчёт по моему участку
-            </a>
           </div>
         </div>
       ) : null}
