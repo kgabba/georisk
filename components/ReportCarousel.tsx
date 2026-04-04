@@ -69,7 +69,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 pt-6 pb-12 sm:px-3 sm:pt-7 sm:pb-14",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 pt-8 pb-12 sm:px-3 sm:pt-9 sm:pb-14",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
