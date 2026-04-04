@@ -15,18 +15,20 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
 
     const cadastre = input.trim();
-    setLoading(true);
+    if (!cadastre) {
+      openContactModal();
+      return;
+    }
 
+    setLoading(true);
     await trackEvent({
       timestamp: new Date().toISOString(),
       cadastre,
       source: "hero",
       polygon_coords: null
     });
-
     setLoading(false);
     onCadastreCaptured(cadastre);
     openContactModal();

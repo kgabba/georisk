@@ -4,7 +4,7 @@ import { ReportCarousel } from "@/components/ReportCarousel";
 
 export function ReportExample() {
   return (
-    <section className="bg-transparent px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+    <section className="bg-transparent px-4 pb-8 pt-10 sm:pb-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl overflow-x-visible overflow-y-visible">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">

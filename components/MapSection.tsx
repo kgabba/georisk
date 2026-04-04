@@ -23,7 +23,10 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
   }, []);
 
   async function handleCheckClick() {
-    if (!polygon.length) return;
+    if (!polygon.length) {
+      openContactModal();
+      return;
+    }
 
     setLoading(true);
     await trackEvent({
@@ -32,7 +35,6 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
       source: "map"
     });
     setLoading(false);
-
     onPolygonReady(polygon);
     openContactModal();
   }
@@ -61,9 +63,9 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
             </p>
             <button
               type="button"
-              disabled={!polygon.length || loading}
+              disabled={loading}
               onClick={handleCheckClick}
-              className="inline-flex items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "Проверяем участок..." : "Проверить этот участок"}
             </button>
