@@ -1,49 +1,38 @@
 "use client";
 
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trackEvent } from "@/lib/track";
 
 const leadSchema = z.object({
-  cadastre: z.string().min(5, "Введите кадастровый номер"),
+  name: z.string().min(2, "Укажите, как к вам обращаться"),
   phone: z.string().min(10, "Введите телефон для связи")
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
 
 interface LeadFormProps {
-  initialCadastre?: string;
   polygonCoords?: [number, number][] | null;
   mode?: "default" | "panel";
 }
 
-export function LeadForm({
-  initialCadastre,
-  polygonCoords,
-  mode = "default"
-}: LeadFormProps) {
+export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting }
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: {
-      cadastre: initialCadastre ?? ""
+      name: ""
     }
   });
-
-  useEffect(() => {
-    if (initialCadastre) setValue("cadastre", initialCadastre);
-  }, [initialCadastre, setValue]);
 
   async function onSubmit(values: LeadFormValues) {
     await trackEvent({
       timestamp: new Date().toISOString(),
-      cadastre: values.cadastre,
+      name: values.name,
       phone: values.phone,
       polygon_coords: polygonCoords ?? null,
       source: "form"
@@ -70,17 +59,18 @@ export function LeadForm({
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
           <div className="space-y-1">
-            <label htmlFor="cadastre" className="block text-sm font-medium text-slate-800">
-              Кадастровый номер участка
+            <label htmlFor="lead-name" className="block text-sm font-medium text-slate-800">
+              Как к Вам обращаться?
             </label>
             <input
-              id="cadastre"
+              id="lead-name"
               type="text"
-              {...register("cadastre")}
+              autoComplete="name"
+              {...register("name")}
               className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-geoblue focus:ring-2 focus:ring-geoblue/60"
-              placeholder="Например 50:21:0040211:123"
+              placeholder="Например, Анна"
             />
-            {errors.cadastre && <p className="text-xs text-red-500">{errors.cadastre.message}</p>}
+            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-1">
@@ -90,6 +80,7 @@ export function LeadForm({
             <input
               id="phone"
               type="tel"
+              autoComplete="tel"
               {...register("phone")}
               className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-geoblue focus:ring-2 focus:ring-geoblue/60"
               placeholder="+7 999 123-45-67"

@@ -3,6 +3,7 @@ export type TrackSource = "hero" | "map" | "form";
 export interface TrackPayload {
   timestamp: string;
   cadastre?: string;
+  name?: string;
   polygon_coords?: [number, number][] | null;
   source: TrackSource;
   phone?: string;

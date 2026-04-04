@@ -13,24 +13,19 @@ import { EndSemrushPanel } from "@/components/EndSemrushPanel";
 import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
-  const [cadastre, setCadastre] = useState<string | undefined>();
   const [polygonCoords, setPolygonCoords] = useState<[number, number][] | null>(null);
 
   return (
     <div className="min-h-screen bg-mint-50">
       <Navbar />
       <main>
-        <Hero onCadastreCaptured={setCadastre} />
+        <Hero onCadastreCaptured={() => {}} />
         <MapSection onPolygonReady={setPolygonCoords} />
         <SolutionsMistakesSection />
         <WhatWeCheck />
         <ReportExample />
         <EndSemrushPanel>
-          <LeadForm
-            initialCadastre={cadastre}
-            polygonCoords={polygonCoords}
-            mode="panel"
-          />
+          <LeadForm polygonCoords={polygonCoords} mode="panel" />
           <Pricing mode="panel" />
         </EndSemrushPanel>
       </main>
