@@ -11,11 +11,11 @@ type ReportCard = {
 
 /** Превью слайдов из отчет.pptx → public/report-slide-1.png … 5.png (см. npm run sync-report-slides) */
 const cards: ReportCard[] = [
-  { title: "Титульный лист + Risk Score", imageSrc: "/report-slide-1.png" },
-  { title: "Карта участка со всеми зонами", imageSrc: "/report-slide-2.png" },
-  { title: "Подробный разбор рисков (список с иконками)", imageSrc: "/report-slide-3.png" },
-  { title: "Рекомендации и вердикт", imageSrc: "/report-slide-4.png" },
-  { title: "Пример для банка/нотариуса", imageSrc: "/report-slide-5.png" }
+  { title: "Титул", imageSrc: "/report-slide-1.png" },
+  { title: "Карта участка", imageSrc: "/report-slide-2.png" },
+  { title: "Подробный разбор рисков", imageSrc: "/report-slide-3.png" },
+  { title: "Рекомендации", imageSrc: "/report-slide-4.png" },
+  { title: "Справка для банка/нотариуса", imageSrc: "/report-slide-5.png" }
 ];
 
 const SLIDE_WIDTH = 1241;
@@ -64,12 +64,16 @@ export function ReportCarousel() {
     [hoveredIndex]
   );
 
+  const lastIdx = cards.length - 1;
+
   return (
-    <div className="relative">
+    <div className="relative overflow-visible">
       <div
         ref={containerRef}
         className={[
-          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 py-16 sm:px-3",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible py-10",
+          "scroll-pl-6 scroll-pr-3 sm:scroll-pl-10",
+          "pl-6 pr-3 sm:pl-10 sm:pr-4",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -88,10 +92,18 @@ export function ReportCarousel() {
             onMouseLeave={() => setHoveredIndex(null)}
             animate={{ scale, opacity }}
             transition={{ duration: 0.34, ease: "easeOut" }}
+            style={{
+              transformOrigin:
+                idx === 0
+                  ? "left center"
+                  : idx === lastIdx
+                    ? "right center"
+                    : "center center"
+            }}
             className={[
               "snap-center shrink-0",
               cardBasisClass,
-              "relative origin-center",
+              "relative",
               isFocused ? "z-30" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
