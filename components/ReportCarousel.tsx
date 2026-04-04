@@ -11,11 +11,11 @@ type ReportCard = {
 
 /** Превью слайдов из отчет.pptx → public/report-slide-1.png … 5.png (см. npm run sync-report-slides) */
 const cards: ReportCard[] = [
-  { title: "Титульный лист + Risk Score", imageSrc: "/report-slide-1.png" },
-  { title: "Карта участка со всеми зонами", imageSrc: "/report-slide-2.png" },
-  { title: "Подробный разбор рисков (список с иконками)", imageSrc: "/report-slide-3.png" },
-  { title: "Рекомендации и вердикт", imageSrc: "/report-slide-4.png" },
-  { title: "Пример для банка/нотариуса", imageSrc: "/report-slide-5.png" }
+  { title: "Титул", imageSrc: "/report-slide-1.png" },
+  { title: "Карта участка", imageSrc: "/report-slide-2.png" },
+  { title: "Подробный разбор рисков", imageSrc: "/report-slide-3.png" },
+  { title: "Рекомендации", imageSrc: "/report-slide-4.png" },
+  { title: "Справка для банка/нотариуса", imageSrc: "/report-slide-5.png" }
 ];
 
 const SLIDE_WIDTH = 1241;
