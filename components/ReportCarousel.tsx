@@ -97,24 +97,17 @@ export function ReportCarousel() {
             ].join(" ")}
             aria-label={card.title}
           >
-            <div className="relative overflow-visible rounded-2xl">
-              <div className="relative aspect-[210/297] w-full overflow-hidden rounded-t-2xl bg-slate-100 ring-1 ring-black/5">
-                <Image
-                  src={card.imageSrc}
-                  alt={card.title}
-                  width={SLIDE_WIDTH}
-                  height={SLIDE_HEIGHT}
-                  className="h-full w-full object-cover object-top"
-                  sizes="(max-width: 640px) 55vw, (max-width: 1024px) 39vw, 25vw"
-                  priority={idx === 0}
-                />
-              </div>
-
-              <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
-                <h3 className="text-[15px] font-semibold leading-snug text-slate-900 sm:text-base">
-                  {card.title}
-                </h3>
-              </div>
+            <div className="relative aspect-[210/297] w-full overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-black/5">
+              <Image
+                src={card.imageSrc}
+                alt=""
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+                className="h-full w-full object-cover object-top"
+                sizes="(max-width: 640px) 55vw, (max-width: 1024px) 39vw, 25vw"
+                priority={idx === 0}
+                aria-hidden
+              />
             </div>
           </motion.article>
         ))}

@@ -16,7 +16,7 @@ export function ReportExample() {
           </p>
         </div>
 
-        <div className="mt-5 sm:mt-6">
+        <div className="mt-3 sm:mt-4">
           <ReportCarousel />
         </div>
       </div>
