@@ -1,19 +1,25 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 type ReportCard = {
   title: string;
+  imageSrc: string;
 };
 
+/** Превью слайдов из отчет.pptx → public/report-slide-1.png … 5.png (см. npm run sync-report-slides) */
 const cards: ReportCard[] = [
-  { title: "Титульный лист + Risk Score" },
-  { title: "Карта участка со всеми зонами" },
-  { title: "Подробный разбор рисков (список с иконками)" },
-  { title: "Рекомендации и вердикт" },
-  { title: "Пример для банка/нотариуса" }
+  { title: "Титульный лист + Risk Score", imageSrc: "/report-slide-1.png" },
+  { title: "Карта участка со всеми зонами", imageSrc: "/report-slide-2.png" },
+  { title: "Подробный разбор рисков (список с иконками)", imageSrc: "/report-slide-3.png" },
+  { title: "Рекомендации и вердикт", imageSrc: "/report-slide-4.png" },
+  { title: "Пример для банка/нотариуса", imageSrc: "/report-slide-5.png" }
 ];
+
+const SLIDE_WIDTH = 1241;
+const SLIDE_HEIGHT = 1754;
 
 export function ReportCarousel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -71,7 +77,7 @@ export function ReportCarousel() {
       >
         {renderedCards.map(({ card, idx, scale, opacity, isFocused }) => (
           <motion.article
-            key={card.title}
+            key={card.imageSrc}
             ref={(el) => {
               cardRefs.current[idx] = el;
             }}
@@ -92,22 +98,16 @@ export function ReportCarousel() {
             aria-label={card.title}
           >
             <div className="relative overflow-visible rounded-2xl">
-              {/* Карточка сделана более вертикальной, близко к A4 */}
-              <div className="relative aspect-[210/297] w-full bg-[linear-gradient(135deg,#eaf7f1_0%,#f0f7f4_45%,#e6eefc_100%)]">
-                {/* Лист A4 внутри блока: занимает ~95% площади, острые углы */}
-                <div className="absolute inset-[2.5%] border border-slate-300/90 bg-white/85 p-3 shadow-sm">
-                  <p className="text-sm font-medium text-slate-500">
-                    Страница {idx + 1}
-                  </p>
-                  <div className="mt-3 h-2 w-28 rounded bg-slate-200" />
-                  <div className="mt-2 h-2 w-4/5 rounded bg-slate-200" />
-                  <div className="mt-2 h-2 w-3/5 rounded bg-slate-200" />
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <div className="h-12 rounded bg-slate-100" />
-                    <div className="h-12 rounded bg-slate-100" />
-                  </div>
-                  <div className="mt-3 h-16 rounded bg-slate-100" />
-                </div>
+              <div className="relative aspect-[210/297] w-full overflow-hidden rounded-t-2xl bg-slate-100 ring-1 ring-black/5">
+                <Image
+                  src={card.imageSrc}
+                  alt={card.title}
+                  width={SLIDE_WIDTH}
+                  height={SLIDE_HEIGHT}
+                  className="h-full w-full object-cover object-top"
+                  sizes="(max-width: 640px) 55vw, (max-width: 1024px) 39vw, 25vw"
+                  priority={idx === 0}
+                />
               </div>
 
               <div className="border-t border-slate-100 bg-white px-4 py-3 sm:px-5">

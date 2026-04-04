@@ -24,6 +24,9 @@ pnpm-debug.log*
 # vercel
 .vercel
 
+# временная папка экспорта слайдов из pptx
+public/.slide-export-tmp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

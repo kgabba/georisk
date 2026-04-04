@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "sync-report-slides": "bash scripts/sync-report-carousel-from-pptx.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
