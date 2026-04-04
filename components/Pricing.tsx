@@ -45,9 +45,9 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
           <button
             type="button"
             onClick={() => setTrialOpen(true)}
-            className="flex flex-col rounded-2xl border border-dashed border-emerald-300/90 bg-white/95 p-5 text-left shadow-soft ring-1 ring-emerald-100/80 transition hover:border-emerald-400 hover:ring-emerald-200/90 sm:p-6"
+            className="flex flex-col rounded-2xl border-2 border-slate-300/90 bg-white/90 p-5 text-left shadow-soft ring-1 ring-emerald-50/80 transition hover:border-slate-400 sm:p-6"
           >
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
               Пробная проверка
             </p>
             <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -58,9 +58,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
                 0&nbsp;₽
               </span>
             </div>
-            <p className="mt-2 text-sm text-slate-600">
-              Одна проверка участка — бесплатно. Нажмите, чтобы узнать, как получить доступ.
-            </p>
+            <p className="mt-2 text-sm text-slate-600">Одна проверка участка — бесплатно.</p>
           </button>
 
           <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-soft ring-1 ring-emerald-50/80 sm:p-6">
@@ -75,8 +73,8 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
             </p>
           </div>
 
-          <div className="flex flex-col rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-white to-emerald-50/40 p-5 shadow-soft ring-1 ring-emerald-100 sm:col-span-2 sm:p-6 lg:col-span-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-800">
+          <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-soft ring-1 ring-emerald-50/80 sm:col-span-2 sm:p-6 lg:col-span-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
               Безлимит на месяц
             </p>
             <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
@@ -117,8 +115,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               Напишите администратору в Telegram или позвоните — ответим за пару минут и подключим одну
-              пробную проверку без оплаты. Так вы увидите отчёт GeoRisk на своём участке до покупки
-              тарифа.
+              пробную проверку без оплаты.
             </p>
 
             <a

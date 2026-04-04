@@ -25,8 +25,8 @@ export default function HomePage() {
         <WhatWeCheck />
         <ReportExample />
         <EndSemrushPanel>
-          <Pricing mode="panel" />
           <LeadForm polygonCoords={polygonCoords} mode="panel" />
+          <Pricing mode="panel" />
         </EndSemrushPanel>
       </main>
       <Footer />
