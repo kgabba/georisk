@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useContactAdminModal } from "@/components/ContactAdminModal";
 import { trackEvent } from "@/lib/track";
 
 interface HeroProps {
@@ -8,6 +9,7 @@ interface HeroProps {
 }
 
 export function Hero({ onCadastreCaptured }: HeroProps) {
+  const { openContactModal } = useContactAdminModal();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -27,8 +29,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
 
     setLoading(false);
     onCadastreCaptured(cadastre);
-
-    document.getElementById("lead-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    openContactModal();
   }
 
   return (

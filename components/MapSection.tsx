@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
+import { useContactAdminModal } from "@/components/ContactAdminModal";
 import { trackEvent } from "@/lib/track";
 
 const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.LeafletMap), {
@@ -13,6 +14,7 @@ interface MapSectionProps {
 }
 
 export function MapSection({ onPolygonReady }: MapSectionProps) {
+  const { openContactModal } = useContactAdminModal();
   const [polygon, setPolygon] = useState<[number, number][]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +34,7 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
     setLoading(false);
 
     onPolygonReady(polygon);
-    document.getElementById("lead-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    openContactModal();
   }
 
   return (
@@ -54,7 +56,9 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
           </div>
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 sm:mt-5 sm:flex-row sm:items-center">
-            <p className="text-xs text-slate-500">После отрисовки полигона нажмите кнопку, чтобы перейти к заявке.</p>
+            <p className="text-xs text-slate-500">
+              После отрисовки полигона нажмите кнопку — откроются телефон и Telegram администратора.
+            </p>
             <button
               type="button"
               disabled={!polygon.length || loading}
