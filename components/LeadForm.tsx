@@ -68,7 +68,7 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
               autoComplete="name"
               {...register("name")}
               className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-geoblue focus:ring-2 focus:ring-geoblue/60"
-              placeholder="Например, Анна"
+              placeholder="например, Александр"
             />
             {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
           </div>

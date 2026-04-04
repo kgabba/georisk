@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Phone } from "lucide-react";
+import { SITE_PHONE_DISPLAY, SITE_PHONE_TEL, SITE_TELEGRAM_URL } from "@/lib/contact";
 
 export function Navbar() {
   return (
@@ -29,22 +30,20 @@ export function Navbar() {
 
           <div className="hidden items-center md:flex md:ml-6 lg:ml-8">
             <a
-              href="tel:+79691111635"
+              href={`tel:${SITE_PHONE_TEL}`}
               className="inline-flex items-center gap-2 whitespace-nowrap"
-              aria-label="Позвонить +7 (969) 1111-635"
+              aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
             >
               <Phone className="h-[18px] w-[18px] text-slate-800" />
-              {/* ЗДЕСЬ МЕНЯТЬ НОМЕР ТЕЛЕФОНА */}
               <span className="text-base font-semibold text-[#1a1a1a]">
-                +7 (969) 1111-635
+                {SITE_PHONE_DISPLAY}
               </span>
               <span className="text-sm text-[#666666]">Бесплатная консультация</span>
             </a>
           </div>
 
-          {/* ЗДЕСЬ МЕНЯТЬ @НИК TELEGRAM */}
           <a
-            href="https://t.me/kamil_geo"
+            href={SITE_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-slate-800 md:ml-4"
@@ -54,12 +53,12 @@ export function Navbar() {
         </div>
 
         <a
-          href="tel:+79691111635"
+          href={`tel:${SITE_PHONE_TEL}`}
           className="mt-2 inline-flex items-center gap-2 md:hidden"
-          aria-label="Позвонить +7 (969) 1111-635"
+          aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
         >
           <Phone className="h-4 w-4 text-slate-800" />
-          <span className="text-[15px] font-semibold text-[#1a1a1a]">+7 (969) 1111-635</span>
+          <span className="text-[15px] font-semibold text-[#1a1a1a]">{SITE_PHONE_DISPLAY}</span>
           <span className="text-[13px] text-[#666666]">Бесплатная консультация</span>
         </a>
       </div>
