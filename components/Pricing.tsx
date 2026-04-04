@@ -19,7 +19,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
           <button
             type="button"
             onClick={openContactModal}
-            className="flex flex-col rounded-2xl border-2 border-slate-300/90 bg-white/90 p-5 text-left shadow-soft ring-1 ring-emerald-50/80 transition hover:border-slate-400 sm:p-6"
+            className="flex flex-col overflow-hidden rounded-2xl border-2 border-emerald-600 bg-white p-5 text-left shadow-soft outline-none transition hover:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:p-6"
           >
             <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
               Пробная проверка
@@ -55,7 +55,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
               1&nbsp;450&nbsp;₽
             </p>
             <p className="mt-2 text-sm text-slate-600">
-              Сколько угодно проверок в течение 30 дней.
+              Безлимитное количество проверок в течение 30 дней.
             </p>
           </div>
         </div>
