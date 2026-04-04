@@ -16,8 +16,8 @@ export function ReportExample() {
           </p>
         </div>
 
-        {/* z выше заголовка — при hover карточка может наехать на текст; чуть ниже, чем сильный -mt раньше */}
-        <div className="relative z-[15] mt-1 overflow-visible sm:mt-2">
+        {/* Выше к заголовку; z выше — увеличенные карточки перекрывают заголовок, не режутся сверху */}
+        <div className="relative z-[15] -mt-5 overflow-visible sm:-mt-6">
           <ReportCarousel />
         </div>
       </div>

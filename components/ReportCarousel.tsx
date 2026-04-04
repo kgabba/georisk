@@ -67,21 +67,18 @@ export function ReportCarousel() {
   const lastIdx = cards.length - 1;
 
   return (
-    <div className="relative -ml-2 overflow-visible sm:-ml-3">
-      {/*
-        Горизонтальный скролл + большой py на том же узле: визуальный overflow от scale остаётся
-        внутри padding-box и не «съедается» сверху/снизу (браузер иначе сводит overflow-y к auto).
-      */}
+    <div className="relative overflow-visible">
       <div
         ref={containerRef}
         className={[
-          "relative z-0 overflow-x-auto overflow-y-hidden py-28 sm:py-32",
-          "scroll-smooth scroll-pl-3 scroll-pr-2 sm:scroll-pl-4 sm:scroll-pr-3",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible py-10",
+          "scroll-pl-6 scroll-pr-3 sm:scroll-pl-10",
+          "pl-6 pr-3 sm:pl-10 sm:pr-4",
+          "scroll-smooth",
           "[overscroll-behavior-x:contain]",
-          "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         ].join(" ")}
       >
-        <div className="flex w-max snap-x snap-mandatory gap-1 pl-3 pr-2 sm:pl-4 sm:pr-3">
         {renderedCards.map(({ card, idx, scale, opacity, isFocused }) => (
           <motion.article
             key={card.imageSrc}
@@ -133,8 +130,8 @@ export function ReportCarousel() {
             </div>
           </motion.article>
         ))}
-        </div>
       </div>
+
     </div>
   );
 }
