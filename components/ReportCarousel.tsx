@@ -69,7 +69,7 @@ export function ReportCarousel() {
       <div
         ref={containerRef}
         className={[
-          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 pt-10 pb-12 sm:px-3 sm:pt-11 sm:pb-14",
+          "relative z-0 flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-visible px-2 pt-12 pb-12 sm:px-3 sm:pt-14 sm:pb-14",
           "scroll-smooth",
           "[overscroll-behavior-x:contain]",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -91,7 +91,8 @@ export function ReportCarousel() {
             className={[
               "snap-center shrink-0",
               cardBasisClass,
-              "relative origin-center",
+              "relative",
+              idx === 0 ? "origin-left" : "origin-center",
               isFocused ? "z-30" : "z-10",
               "rounded-2xl bg-white shadow-md ring-1 ring-black/5"
             ].join(" ")}
