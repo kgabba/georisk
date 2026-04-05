@@ -3,7 +3,6 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { trackEvent } from "@/lib/track";
 
 const leadSchema = z.object({
   name: z.string().min(2, "Укажите, как к вам обращаться"),
@@ -29,15 +28,7 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
     }
   });
 
-  async function onSubmit(values: LeadFormValues) {
-    await trackEvent({
-      timestamp: new Date().toISOString(),
-      name: values.name,
-      phone: values.phone,
-      polygon_coords: polygonCoords ?? null,
-      source: "form"
-    });
-
+  function onSubmit(_values: LeadFormValues) {
     alert("Заявка отправлена. Мы свяжемся с вами для экспертного отчёта.");
   }
 

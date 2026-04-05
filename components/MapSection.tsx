@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
-import { trackEvent } from "@/lib/track";
 
 const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.LeafletMap), {
   ssr: false
@@ -16,26 +15,15 @@ interface MapSectionProps {
 export function MapSection({ onPolygonReady }: MapSectionProps) {
   const { openContactModal } = useContactAdminModal();
   const [polygon, setPolygon] = useState<[number, number][]>([]);
-  const [loading, setLoading] = useState(false);
 
   const handlePolygonDrawn = useCallback((coords: [number, number][]) => {
     setPolygon(coords);
   }, []);
 
-  async function handleCheckClick() {
-    if (!polygon.length) {
-      openContactModal();
-      return;
+  function handleCheckClick() {
+    if (polygon.length) {
+      onPolygonReady(polygon);
     }
-
-    setLoading(true);
-    await trackEvent({
-      timestamp: new Date().toISOString(),
-      polygon_coords: polygon,
-      source: "map"
-    });
-    setLoading(false);
-    onPolygonReady(polygon);
     openContactModal();
   }
 
@@ -63,11 +51,10 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
             </p>
             <button
               type="button"
-              disabled={loading}
               onClick={handleCheckClick}
-              className="inline-flex items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600"
             >
-              {loading ? "Проверяем участок..." : "Проверить этот участок"}
+              Проверить этот участок
             </button>
           </div>
         </div>

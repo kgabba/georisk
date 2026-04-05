@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
-import { trackEvent } from "@/lib/track";
 
 interface HeroProps {
   onCadastreCaptured: (cadastre: string) => void;
@@ -18,7 +17,6 @@ const MOBILE_SUBTITLE =
 export function Hero({ onCadastreCaptured }: HeroProps) {
   const { openContactModal } = useContactAdminModal();
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [placeholder, setPlaceholder] = useState(MOBILE_PLACEHOLDER);
 
   useEffect(() => {
@@ -31,7 +29,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     const cadastre = input.trim();
@@ -40,14 +38,6 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
       return;
     }
 
-    setLoading(true);
-    await trackEvent({
-      timestamp: new Date().toISOString(),
-      cadastre,
-      source: "hero",
-      polygon_coords: null
-    });
-    setLoading(false);
     onCadastreCaptured(cadastre);
     openContactModal();
   }
@@ -88,10 +78,9 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
             </div>
             <button
               type="submit"
-              disabled={loading}
-              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-md transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70 max-md:mt-0 max-md:shadow-sm md:mt-0 md:w-auto md:rounded-full md:py-2.5 md:shadow-sm"
+              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-md transition hover:bg-blue-600 max-md:mt-0 max-md:shadow-sm md:mt-0 md:w-auto md:rounded-full md:py-2.5 md:shadow-sm"
             >
-              {loading ? "Проверяем..." : "Проверить"}
+              Проверить
             </button>
           </div>
           <p className="hidden text-xs text-slate-600 md:block">или нарисуйте полигон ниже</p>

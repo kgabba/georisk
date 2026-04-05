@@ -10,6 +10,7 @@
     "sync-report-slides": "bash scripts/sync-report-carousel-from-pptx.sh"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.19.2",
     "@hookform/resolvers": "^3.9.0",
     "@types/leaflet": "^1.9.12",
     "leaflet": "^1.9.4",
