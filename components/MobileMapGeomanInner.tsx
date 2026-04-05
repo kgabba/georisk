@@ -47,7 +47,13 @@ export default function MobileMapGeomanInner({ onPolygonChange }: MobileMapGeoma
     const map = L.map(el, {
       zoomControl: true,
       attributionControl: true
-    }).setView([55.75, 37.61], 11);
+    });
+
+    const leningradToKurgan = L.latLngBounds(
+      [54.35, 27.15] as L.LatLngTuple,
+      [61.35, 66.85] as L.LatLngTuple
+    );
+    map.fitBounds(leningradToKurgan, { padding: [12, 12], maxZoom: 7 });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,

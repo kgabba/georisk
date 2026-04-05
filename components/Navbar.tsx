@@ -11,7 +11,7 @@ const MOBILE_NAV = [
   { label: "Пример отчёта", hash: "#report-example" },
   { label: "Что мы проверяем", hash: "#what-we-check" },
   { label: "Риски сделки", hash: "#frequent-mistakes" },
-  { label: "Карта участка", hash: "#mobile-map-section" },
+  { label: "Выделить на карте", hash: "#mobile-map-section" },
   { label: "Заявка", hash: "#lead-form" },
   { label: "Тарифы", hash: "#pricing" }
 ] as const;
@@ -47,7 +47,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 border-b border-emerald-100/70 bg-mint-50/80 backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-30 max-md:z-[5000] border-b border-emerald-100/70 bg-mint-50/80 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-3 py-2 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between gap-3">
           <Link

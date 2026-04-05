@@ -54,18 +54,14 @@ export function MobileMapSection({ onPolygonReady }: MobileMapSectionProps) {
           Вы также можете проверить участок, выделив его на карте
         </h2>
         <p className="mt-1.5 text-sm leading-snug text-slate-600">
-          Если не знаете кадастровый номер — просто обведите границы участка. Можно двигать точки и
-          удалить фигуру кнопкой удаления на панели.
+          Если не знаете кадастровый номер — просто обведите границы участка.
         </p>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-100/80 bg-white/90 shadow-soft ring-1 ring-emerald-50/80">
           <MobileMapGeomanInner onPolygonChange={handlePolygonChange} />
         </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          <p className="text-xs text-slate-500">
-            После выделения нажмите «Проверить» — откроются контакты администратора.
-          </p>
+        <div className="mt-4">
           <button
             type="button"
             onClick={handleCheck}
