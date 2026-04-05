@@ -8,9 +8,9 @@ import { SITE_PHONE_DISPLAY, SITE_PHONE_TEL, SITE_TELEGRAM_URL } from "@/lib/con
 import { useContactAdminModal } from "@/components/ContactAdminModal";
 
 const MOBILE_NAV = [
-  { label: "Отчёт", hash: "#report-example" },
-  { label: "Проверки", hash: "#what-we-check" },
-  { label: "Ошибки", hash: "#frequent-mistakes" },
+  { label: "Пример отчёта", hash: "#report-example" },
+  { label: "Что мы проверяем", hash: "#what-we-check" },
+  { label: "Риски сделки", hash: "#frequent-mistakes" },
   { label: "Заявка", hash: "#lead-form" },
   { label: "Тарифы", hash: "#pricing" }
 ] as const;

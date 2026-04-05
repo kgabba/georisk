@@ -184,7 +184,7 @@ export function ReportCarousel() {
                 i === null ? null : (i - 1 + cards.length) % cards.length
               );
             }}
-            className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:left-3 sm:p-3"
+            className="absolute z-20 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 max-md:bottom-7 max-md:left-5 max-md:top-auto max-md:translate-y-0 md:bottom-auto md:left-3 md:top-1/2 md:-translate-y-1/2 md:p-3"
             aria-label="Предыдущий слайд"
           >
             <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
@@ -196,7 +196,7 @@ export function ReportCarousel() {
               e.stopPropagation();
               setLightboxIndex((i) => (i === null ? null : (i + 1) % cards.length));
             }}
-            className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:right-3 sm:p-3"
+            className="absolute z-20 rounded-full bg-white/12 p-2.5 text-white ring-1 ring-white/20 transition hover:bg-white/20 max-md:bottom-7 max-md:right-5 max-md:top-auto max-md:translate-y-0 md:bottom-auto md:right-3 md:top-1/2 md:-translate-y-1/2 md:p-3"
             aria-label="Следующий слайд"
           >
             <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
@@ -206,9 +206,9 @@ export function ReportCarousel() {
             {cards[lightboxIndex]!.title}
           </h2>
 
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-12 py-10 sm:px-16 sm:py-12">
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-12 py-10 max-md:px-3 max-md:pb-24 max-md:pt-10 sm:px-16 sm:py-12">
             <div
-              className="pointer-events-auto relative h-[min(92dvh,calc(94vw*297/210))] w-[min(94vw,calc(92dvh*210/297))]"
+              className="pointer-events-auto relative max-md:h-[min(100dvh,calc(98vw*297/210))] max-md:w-[min(98vw,calc(100dvh*210/297))] md:h-[min(92dvh,calc(94vw*297/210))] md:w-[min(94vw,calc(92dvh*210/297))]"
               onMouseDown={(e) => e.stopPropagation()}
               role="presentation"
             >
@@ -218,7 +218,7 @@ export function ReportCarousel() {
                 alt=""
                 fill
                 className="rounded-2xl object-contain object-center shadow-2xl ring-1 ring-white/15"
-                sizes="94vw"
+                sizes="(max-width: 767px) 98vw, 94vw"
                 draggable={false}
               />
             </div>

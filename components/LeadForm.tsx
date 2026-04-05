@@ -45,7 +45,7 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
     <section
       id="lead-form"
       className={[
-        "bg-transparent",
+        "bg-transparent max-md:scroll-mt-24 md:scroll-mt-0",
         mode === "panel"
           ? "px-0 pb-0 pt-0"
           : "px-4 pb-20 pt-4 sm:px-6 lg:px-8"

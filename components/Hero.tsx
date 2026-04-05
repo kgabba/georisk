@@ -13,7 +13,7 @@ const DESKTOP_PLACEHOLDER =
 const MOBILE_PLACEHOLDER = "например: 54:36:123456:789";
 
 const MOBILE_SUBTITLE =
-  "В один клик вы получите PDF-отчёт с проверкой пересечения вашего участка с водоохранными зонами, ЛЭП, ООПТ и другими ограничивающими строительство зонами. Также проверка рисков подтопления и неблагоприятных процессов: карст, оползни и др.";
+  "В один клик — PDF с проверкой ЛЭП, водоохранки, ООПТ и запретов на строительство, плюс подтопление и рельеф. Увидите риски участка до сделки.";
 
 export function Hero({ onCadastreCaptured }: HeroProps) {
   const { openContactModal } = useContactAdminModal();
@@ -67,7 +67,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
           <p className="mx-auto hidden max-w-2xl text-balance text-base text-slate-700 md:block sm:text-lg">
             Автоматический анализ водоохранных зон, ЛЭП, ООПТ, уклона и подтопления. Экспертный PDF-отчёт.
           </p>
-          <p className="mx-auto max-w-2xl text-balance text-left text-sm leading-snug text-slate-700 max-md:block md:hidden">
+          <p className="mx-auto max-w-2xl text-balance text-sm leading-snug text-slate-700 max-md:block max-md:text-center md:hidden">
             {MOBILE_SUBTITLE}
           </p>
         </div>
@@ -76,18 +76,18 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
           onSubmit={handleSubmit}
           className="mt-10 w-full max-w-2xl space-y-3 max-md:mt-6 md:mt-10"
         >
-          <div className="hero-input flex max-md:flex-col max-md:gap-3 max-md:rounded-2xl max-md:px-4 max-md:py-3 md:flex-row md:items-center md:gap-3">
+          <div className="hero-input flex max-md:flex-col max-md:gap-3 max-md:rounded-2xl max-md:border-slate-200/90 max-md:bg-white max-md:px-4 max-md:py-3 max-md:shadow-[0_8px_30px_rgba(15,23,42,0.08)] max-md:ring-1 max-md:ring-emerald-100/70 md:flex-row md:items-center md:gap-3 md:shadow-sm md:ring-0">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={placeholder}
-              className="w-full border-none bg-transparent text-base outline-none max-md:text-[15px] placeholder:text-slate-400 md:text-base"
+              className="w-full border-none bg-transparent text-base outline-none max-md:text-center max-md:text-[15px] placeholder:text-slate-400 md:text-left md:text-base"
             />
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70 max-md:mt-0 md:mt-0 md:w-auto md:rounded-full md:py-2.5"
+              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-md transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70 max-md:mt-0 max-md:shadow-sm md:mt-0 md:w-auto md:rounded-full md:py-2.5 md:shadow-sm"
             >
               {loading ? "Проверяем..." : "Проверить"}
             </button>

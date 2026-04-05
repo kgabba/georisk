@@ -56,7 +56,7 @@ export function SolutionsMistakesSection() {
   return (
     <section
       id="frequent-mistakes"
-      className="order-4 bg-transparent px-4 pb-16 pt-4 max-md:bg-mint-50 max-md:pt-3 sm:px-6 md:order-3 lg:px-8"
+      className="order-4 bg-transparent px-4 pb-16 pt-4 max-md:scroll-mt-24 max-md:bg-mint-50 max-md:pt-3 sm:px-6 md:order-3 md:scroll-mt-0 lg:px-8"
     >
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

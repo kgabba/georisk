@@ -39,7 +39,7 @@ export function WhatWeCheck() {
   return (
     <section
       id="what-we-check"
-      className="order-3 bg-transparent px-4 pb-16 pt-4 sm:px-6 md:order-4 lg:px-8"
+      className="order-3 bg-transparent px-4 pb-16 pt-4 max-md:scroll-mt-24 sm:px-6 md:order-4 md:scroll-mt-0 lg:px-8"
     >
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
