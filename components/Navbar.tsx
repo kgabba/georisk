@@ -28,27 +28,26 @@ export function Navbar() {
             />
           </Link>
 
-          <div className="hidden items-center gap-4 md:flex md:ml-6 lg:ml-8">
-            <a
-              href={`tel:${SITE_PHONE_TEL}`}
-              className="inline-flex items-center gap-2 whitespace-nowrap"
-              aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
-            >
-              <Phone className="h-[18px] w-[18px] text-slate-800" />
-              <span className="text-base font-semibold text-[#1a1a1a]">
-                {SITE_PHONE_DISPLAY}
-              </span>
-              <span className="text-sm text-[#666666]">Бесплатная консультация</span>
-            </a>
-            <a
-              href={SITE_TELEGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-slate-800"
-            >
-              <span>Написать в Telegram</span>
-            </a>
-          </div>
+          <a
+            href={`tel:${SITE_PHONE_TEL}`}
+            className="hidden items-center gap-2 whitespace-nowrap md:inline-flex md:ml-6 lg:ml-8"
+            aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
+          >
+            <Phone className="h-[18px] w-[18px] text-slate-800" />
+            <span className="text-base font-semibold text-[#1a1a1a]">
+              {SITE_PHONE_DISPLAY}
+            </span>
+            <span className="text-sm text-[#666666]">Бесплатная консультация</span>
+          </a>
+
+          <a
+            href={SITE_TELEGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-slate-800 md:inline-flex md:ml-4"
+          >
+            <span>Написать в Telegram</span>
+          </a>
 
           <a
             href={`tel:${SITE_PHONE_TEL}`}
