@@ -37,7 +37,10 @@ const items = [
 
 export function WhatWeCheck() {
   return (
-    <section className="bg-transparent px-4 pb-16 pt-4 sm:px-6 lg:px-8">
+    <section
+      id="what-we-check"
+      className="order-3 bg-transparent px-4 pb-16 pt-4 sm:px-6 md:order-4 lg:px-8"
+    >
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -50,9 +53,9 @@ export function WhatWeCheck() {
           {items.map((item) => (
             <div
               key={item.title}
-              className="flex flex-row gap-3 rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-emerald-50 sm:flex-col sm:gap-0 sm:p-6"
+              className="flex flex-row gap-4 rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-emerald-50 max-md:items-center sm:flex-col sm:gap-0 sm:p-6"
             >
-              <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:mb-4">
+              <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:mb-4 sm:self-auto">
                 <item.icon className="h-6 w-6" />
               </div>
               <div className="min-w-0 flex-1 sm:flex-none">

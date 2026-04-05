@@ -7,6 +7,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
 
   return (
     <section
+      id="pricing"
       className={[
         "bg-transparent",
         mode === "panel" ? "px-0 pb-0 pt-0" : "px-4 pb-16 pt-4 sm:px-6 lg:px-8"

@@ -20,7 +20,7 @@ export default function HomePage() {
     <ContactAdminModalProvider>
       <div className="min-h-screen bg-mint-50">
         <Navbar />
-        <main>
+        <main className="flex flex-col">
           <Hero onCadastreCaptured={() => {}} />
           <MapSection onPolygonReady={setPolygonCoords} />
           <SolutionsMistakesSection />

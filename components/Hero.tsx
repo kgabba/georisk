@@ -10,7 +10,10 @@ interface HeroProps {
 
 const DESKTOP_PLACEHOLDER =
   "Введите кадастровый номер (например 50:21:0040211:123)";
-const MOBILE_PLACEHOLDER = "Кадастровый номер";
+const MOBILE_PLACEHOLDER = "например: 54:36:123456:789";
+
+const MOBILE_SUBTITLE =
+  "В один клик вы получите PDF-отчёт с проверкой пересечения вашего участка с водоохранными зонами, ЛЭП, ООПТ и другими ограничивающими строительство зонами. Также проверка рисков подтопления и неблагоприятных процессов: карст, оползни и др.";
 
 export function Hero({ onCadastreCaptured }: HeroProps) {
   const { openContactModal } = useContactAdminModal();
@@ -19,7 +22,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
   const [placeholder, setPlaceholder] = useState(MOBILE_PLACEHOLDER);
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)");
+    const mq = window.matchMedia("(min-width: 768px)");
     function sync() {
       setPlaceholder(mq.matches ? DESKTOP_PLACEHOLDER : MOBILE_PLACEHOLDER);
     }
@@ -50,37 +53,46 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
   }
 
   return (
-    <section id="top" className="relative flex min-h-screen items-center justify-center bg-mint-50">
+    <section
+      id="top"
+      className="relative order-1 flex min-h-screen items-center justify-center bg-mint-50 md:order-1"
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.28),_transparent_55%),_radial-gradient(circle_at_bottom,_rgba(37,99,235,0.18),_transparent_55%)] opacity-70" />
 
-      <div className="relative z-10 mt-16 flex w-full max-w-5xl flex-col items-center px-4 pb-16 pt-8 text-center sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl space-y-6">
-          <h1 className="text-balance text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-[72px] lg:leading-[1.05]">
+      <div className="relative z-10 mt-16 flex w-full max-w-5xl flex-col items-center px-4 pb-16 pt-8 text-center max-md:mt-10 max-md:pb-8 max-md:pt-3 sm:px-6 md:mt-16 md:pb-16 md:pt-8 lg:px-8">
+        <div className="mx-auto max-w-3xl space-y-3 md:space-y-6">
+          <h1 className="text-balance font-semibold tracking-tight text-slate-900 max-md:text-[1.85rem] max-md:leading-[1.15] md:text-6xl lg:text-[72px] lg:leading-[1.05]">
             Проверьте риски участка за 30 секунд
           </h1>
-          <p className="mx-auto max-w-2xl text-balance text-base text-slate-700 sm:text-lg">
+          <p className="mx-auto hidden max-w-2xl text-balance text-base text-slate-700 md:block sm:text-lg">
             Автоматический анализ водоохранных зон, ЛЭП, ООПТ, уклона и подтопления. Экспертный PDF-отчёт.
+          </p>
+          <p className="mx-auto max-w-2xl text-balance text-left text-sm leading-snug text-slate-700 max-md:block md:hidden">
+            {MOBILE_SUBTITLE}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-10 w-full max-w-2xl space-y-3">
-          <div className="hero-input flex items-center gap-3">
+        <form
+          onSubmit={handleSubmit}
+          className="mt-10 w-full max-w-2xl space-y-3 max-md:mt-6 md:mt-10"
+        >
+          <div className="hero-input flex max-md:flex-col max-md:gap-3 max-md:rounded-2xl max-md:px-4 max-md:py-3 md:flex-row md:items-center md:gap-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={placeholder}
-              className="text-sm placeholder:text-slate-400 sm:text-base sm:placeholder:text-slate-400"
+              className="w-full border-none bg-transparent text-base outline-none max-md:text-[15px] placeholder:text-slate-400 md:text-base"
             />
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70 max-md:mt-0 md:mt-0 md:w-auto md:rounded-full md:py-2.5"
             >
               {loading ? "Проверяем..." : "Проверить"}
             </button>
           </div>
-          <p className="hidden text-xs text-slate-600 sm:block">или нарисуйте полигон ниже</p>
+          <p className="hidden text-xs text-slate-600 md:block">или нарисуйте полигон ниже</p>
         </form>
       </div>
     </section>
