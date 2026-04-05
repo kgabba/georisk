@@ -76,14 +76,16 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
           onSubmit={handleSubmit}
           className="mt-10 w-full max-w-2xl space-y-3 max-md:mt-6 md:mt-10"
         >
-          <div className="hero-input flex max-md:flex-col max-md:gap-3 max-md:rounded-2xl max-md:border-slate-200/90 max-md:bg-white max-md:px-4 max-md:py-3 max-md:shadow-[0_8px_30px_rgba(15,23,42,0.08)] max-md:ring-1 max-md:ring-emerald-100/70 md:flex-row md:items-center md:gap-3 md:shadow-sm md:ring-0">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={placeholder}
-              className="w-full border-none bg-transparent text-base outline-none max-md:text-center max-md:text-[15px] placeholder:text-slate-400 md:text-left md:text-base"
-            />
+          <div className="hero-input flex max-md:flex-col max-md:gap-3 max-md:rounded-2xl max-md:border-slate-200/90 max-md:bg-white max-md:px-3 max-md:py-3 max-md:shadow-[0_8px_30px_rgba(15,23,42,0.08)] max-md:ring-1 max-md:ring-emerald-100/70 md:flex-row md:items-center md:gap-3 md:px-4 md:py-2 md:shadow-sm md:ring-0">
+            <div className="min-w-0 w-full flex-1 rounded-xl bg-slate-100/95 px-3 py-2.5 ring-1 ring-slate-200/60 max-md:w-full md:rounded-full md:py-2.5 md:pl-4 md:pr-3">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={placeholder}
+                className="w-full border-none bg-transparent text-base text-slate-900 outline-none caret-geoblue max-md:text-center max-md:text-[15px] placeholder:text-slate-400 md:text-left md:text-base"
+              />
+            </div>
             <button
               type="submit"
               disabled={loading}
