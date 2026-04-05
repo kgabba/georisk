@@ -48,12 +48,17 @@ export function WhatWeCheck() {
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
-            <div key={item.title} className="flex flex-col rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-emerald-50 sm:p-6">
-              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <div
+              key={item.title}
+              className="flex flex-row gap-3 rounded-2xl bg-white/90 p-5 shadow-sm ring-1 ring-emerald-50 sm:flex-col sm:gap-0 sm:p-6"
+            >
+              <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:mb-4">
                 <item.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+              <div className="min-w-0 flex-1 sm:flex-none">
+                <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-1 text-sm text-slate-600 sm:mt-2">{item.description}</p>
+              </div>
             </div>
           ))}
         </div>

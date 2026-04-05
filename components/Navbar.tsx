@@ -28,7 +28,7 @@ export function Navbar() {
             />
           </Link>
 
-          <div className="hidden items-center md:flex md:ml-6 lg:ml-8">
+          <div className="hidden items-center gap-4 md:flex md:ml-6 lg:ml-8">
             <a
               href={`tel:${SITE_PHONE_TEL}`}
               className="inline-flex items-center gap-2 whitespace-nowrap"
@@ -40,27 +40,25 @@ export function Navbar() {
               </span>
               <span className="text-sm text-[#666666]">Бесплатная консультация</span>
             </a>
+            <a
+              href={SITE_TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-slate-800"
+            >
+              <span>Написать в Telegram</span>
+            </a>
           </div>
 
           <a
-            href={SITE_TELEGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-slate-800 md:ml-4"
+            href={`tel:${SITE_PHONE_TEL}`}
+            className="inline-flex items-center gap-2 md:hidden"
+            aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
           >
-            <span>Написать в Telegram</span>
+            <Phone className="h-4 w-4 text-slate-800" />
+            <span className="text-[15px] font-semibold text-[#1a1a1a]">{SITE_PHONE_DISPLAY}</span>
           </a>
         </div>
-
-        <a
-          href={`tel:${SITE_PHONE_TEL}`}
-          className="mt-2 inline-flex items-center gap-2 md:hidden"
-          aria-label={`Позвонить ${SITE_PHONE_DISPLAY}`}
-        >
-          <Phone className="h-4 w-4 text-slate-800" />
-          <span className="text-[15px] font-semibold text-[#1a1a1a]">{SITE_PHONE_DISPLAY}</span>
-          <span className="text-[13px] text-[#666666]">Бесплатная консультация</span>
-        </a>
       </div>
     </header>
   );

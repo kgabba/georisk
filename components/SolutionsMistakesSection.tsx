@@ -44,12 +44,15 @@ export function SolutionsMistakesSection() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
+            <h2 className="text-2xl font-semibold text-slate-900 sm:hidden">
+              Самые частые ошибки, которые мы находим до того, как вы потеряете деньги
+            </h2>
+            <h2 className="hidden text-2xl font-semibold text-slate-900 sm:block sm:text-3xl">
               Каждый месяц люди теряют 1–5 млн ₽
               <br />
               на участках, которые казались идеальными
             </h2>
-            <p className="mt-2 text-base text-slate-600">
+            <p className="mt-2 hidden text-base text-slate-600 sm:block">
               Вот 4 самые частые ошибки, которые мы находим до того, как вы
               потеряете деньги
             </p>
@@ -83,14 +86,14 @@ export function SolutionsMistakesSection() {
                 {card.tag}
               </p>
 
-              <h3 className="mt-4 min-h-[3rem] text-base font-semibold leading-snug text-slate-900 sm:min-h-[3.5rem]">
+              <h3 className="mt-2 min-h-[3rem] text-base font-semibold leading-snug text-slate-900 sm:mt-4 sm:min-h-[3.5rem]">
                 {card.title}
               </h3>
-              <p className="mt-2 min-h-[4.5rem] text-sm leading-relaxed text-slate-600 sm:min-h-[5rem]">
+              <p className="mt-1 min-h-[4.5rem] text-sm leading-relaxed text-slate-600 sm:mt-2 sm:min-h-[5rem]">
                 {card.description}
               </p>
 
-              <div className="mt-auto pt-6">
+              <div className="mt-auto pt-3 sm:pt-6">
                 <div className="min-h-[128px] overflow-hidden rounded-xl border border-slate-200/90 bg-transparent shadow-inner">
                   <img
                     src={imageSrc}

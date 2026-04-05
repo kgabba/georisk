@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
 import { trackEvent } from "@/lib/track";
 
@@ -8,10 +8,25 @@ interface HeroProps {
   onCadastreCaptured: (cadastre: string) => void;
 }
 
+const DESKTOP_PLACEHOLDER =
+  "Введите кадастровый номер (например 50:21:0040211:123)";
+const MOBILE_PLACEHOLDER = "Кадастровый номер";
+
 export function Hero({ onCadastreCaptured }: HeroProps) {
   const { openContactModal } = useContactAdminModal();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [placeholder, setPlaceholder] = useState(MOBILE_PLACEHOLDER);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    function sync() {
+      setPlaceholder(mq.matches ? DESKTOP_PLACEHOLDER : MOBILE_PLACEHOLDER);
+    }
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,8 +69,8 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Введите кадастровый номер (например 50:21:0040211:123)"
-              className="text-sm sm:text-base"
+              placeholder={placeholder}
+              className="text-sm placeholder:text-slate-400 sm:text-base sm:placeholder:text-slate-400"
             />
             <button
               type="submit"
@@ -65,7 +80,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
               {loading ? "Проверяем..." : "Проверить"}
             </button>
           </div>
-          <p className="text-xs text-slate-600">или нарисуйте полигон ниже</p>
+          <p className="hidden text-xs text-slate-600 sm:block">или нарисуйте полигон ниже</p>
         </form>
       </div>
     </section>
