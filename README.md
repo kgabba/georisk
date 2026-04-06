@@ -8,6 +8,7 @@
 
 - **Node.js 18.18+** (рекомендуется 20 LTS). Next 15 и часть зависимостей не поддерживают старые версии Node.
 - npm (или совместимый менеджер пакетов).
+- Для серверного деплоя: Docker + Docker Compose plugin.
 
 ---
 
@@ -46,6 +47,10 @@ npm run lint
 | [`scripts/sync-report-carousel-from-pptx.sh`](scripts/sync-report-carousel-from-pptx.sh) | Опционально: выгрузка PNG слайдов из `отчет.pptx` в `public/report-slide-*.png` (через Docker). |
 | [`tailwind.config.ts`](tailwind.config.ts) | Тема: цвета `mint`, `geoblue`, тень `soft`, шрифт. |
 | [`next.config.mjs`](next.config.mjs) | Минимальная конфигурация Next (`reactStrictMode`). |
+| [`Dockerfile`](Dockerfile) | Multi-stage сборка production-образа Next.js. |
+| [`docker-compose.yml`](docker-compose.yml) | Запуск `web` (Next.js) + `nginx` (reverse proxy). |
+| [`infra/nginx/default.conf`](infra/nginx/default.conf) | Конфигурация nginx с проксированием в `web:3000`, логами и cache для `/_next/static`. |
+| [`.env.example`](.env.example) | Шаблон переменных окружения (Umami и будущий API URL). |
 
 **API-маршрутов в `app/api` сейчас нет** — лендинг не шлёт данные на собственный backend; форма заявки по сабмиту показывает `alert` (заглушка).
 
@@ -125,7 +130,77 @@ npm run lint
 
 ## Деплой
 
-Проект — обычное **Node-приложение Next.js**: `npm run build` и `npm run start` (или хостинг вроде Vercel). Отдельный backend в репозитории не разворачивается; при переносе на свой сервер достаточно одного процесса Node за reverse proxy (nginx) с TLS.
+### Что разворачивается сейчас
+
+В репозитории только Next.js лендинг. Отдельный backend не поднимается.
+
+### Рекомендуемая схема для Selectel
+
+- `web` контейнер: Next.js (`npm run build` + `npm run start`).
+- `nginx` контейнер: reverse proxy на 80 порт.
+- Аналитика посещений: **Umami Cloud** (подключается через env).
+
+### 1) Подготовка сервера
+
+Установить Docker и Compose plugin (Ubuntu):
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### 2) Конфигурация проекта на сервере
+
+```bash
+cp .env.example .env
+```
+
+Заполнить в `.env`:
+
+- `NEXT_PUBLIC_UMAMI_SCRIPT_URL` (обычно `https://cloud.umami.is/script.js`);
+- `NEXT_PUBLIC_UMAMI_WEBSITE_ID` (id сайта из Umami);
+- `NEXT_PUBLIC_API_BASE_URL` пока можно оставить пустым.
+
+### 3) Запуск
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Проверка:
+
+```bash
+curl -I http://<SERVER_IP>
+docker compose logs -f web
+docker compose logs -f nginx
+```
+
+### 4) TLS/HTTPS
+
+В текущем compose `nginx` слушает только `80` порт. Для production HTTPS добавьте TLS одним из вариантов:
+
+- через внешний TLS (например, балансировщик/edge в Selectel);
+- или отдельным шагом выпустить сертификат Let's Encrypt и подключить `443` в конфиг nginx.
+
+### Подготовка к будущему backend
+
+В `infra/nginx/default.conf` уже есть блок `location /api/`. Пока он проксирует в `web`.
+Когда появится backend, достаточно:
+
+1. добавить сервис `api` в `docker-compose.yml`;
+2. сменить `proxy_pass` для `/api` на `http://api:<port>`;
+3. перезапустить `docker compose up -d`.
+
+Домен и фронт при этом менять не нужно.
 
 ---
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -19,9 +20,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+  const umamiScriptUrl = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL;
+  const isUmamiEnabled = Boolean(umamiWebsiteId && umamiScriptUrl);
+
   return (
     <html lang="ru">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${inter.variable} antialiased`}>
+        {children}
+        {isUmamiEnabled ? (
+          <Script
+            defer
+            src={umamiScriptUrl}
+            data-website-id={umamiWebsiteId}
+            strategy="afterInteractive"
+          />
+        ) : null}
+      </body>
     </html>
   );
 }
