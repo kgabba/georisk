@@ -20,6 +20,7 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting }
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
@@ -28,7 +29,22 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
     }
   });
 
-  function onSubmit(_values: LeadFormValues) {
+  async function onSubmit(values: LeadFormValues) {
+    const response = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...values,
+        polygonCoords: polygonCoords ?? null
+      })
+    });
+
+    if (!response.ok) {
+      alert("Не удалось отправить заявку. Попробуйте еще раз через минуту.");
+      return;
+    }
+
+    reset();
     alert("Заявка отправлена. Мы свяжемся с вами для экспертного отчёта.");
   }
 

@@ -48,11 +48,12 @@ npm run lint
 | [`tailwind.config.ts`](tailwind.config.ts) | Тема: цвета `mint`, `geoblue`, тень `soft`, шрифт. |
 | [`next.config.mjs`](next.config.mjs) | Минимальная конфигурация Next (`reactStrictMode`). |
 | [`Dockerfile`](Dockerfile) | Multi-stage сборка production-образа Next.js. |
-| [`docker-compose.yml`](docker-compose.yml) | Запуск `web` (Next.js) + `nginx` (reverse proxy). |
+| [`docker-compose.yml`](docker-compose.yml) | Запуск `web` (Next.js) + `api` (backend) + `db` (PostGIS) + `nginx` (reverse proxy). |
 | [`infra/nginx/default.conf`](infra/nginx/default.conf) | Конфигурация nginx с проксированием в `web:3000`, логами и cache для `/_next/static`. |
 | [`.env.example`](.env.example) | Шаблон переменных окружения (Umami и будущий API URL). |
+| [`backend/`](backend/) | Минимальный backend-сервис для записи заявок в PostGIS (`POST /api/leads`). |
 
-**API-маршрутов в `app/api` сейчас нет** — лендинг не шлёт данные на собственный backend; форма заявки по сабмиту показывает `alert` (заглушка).
+Заявка формы отправляется в backend endpoint `POST /api/leads` и сохраняется в таблицу `lead_submissions` в PostGIS.
 
 ---
 
@@ -109,7 +110,7 @@ npm run lint
 
 - **Pricing** — тарифы; тексты и цены внутри компонента.
 - **ReportCarousel** — слайды из `public/report-slide-1.png` … `5.png`, анимации Framer Motion, лайтбокс.
-- **LeadForm** — react-hook-form + zod; сабмит без API, только `alert`.
+- **LeadForm** — react-hook-form + zod; сабмит в backend (`/api/leads`).
 - **Footer** — нижняя полоса сайта.
 
 ---
@@ -130,13 +131,11 @@ npm run lint
 
 ## Деплой
 
-### Что разворачивается сейчас
-
-В репозитории только Next.js лендинг. Отдельный backend не поднимается.
-
 ### Рекомендуемая схема для Selectel
 
 - `web` контейнер: Next.js (`npm run build` + `npm run start`).
+- `api` контейнер: Fastify backend (`POST /api/leads`).
+- `db` контейнер: PostgreSQL + PostGIS (хранение заявок, база для будущих spatial-операций).
 - `nginx` контейнер: reverse proxy на 80 порт.
 - Аналитика посещений: **Umami Cloud** (подключается через env).
 
@@ -167,7 +166,8 @@ cp .env.example .env
 
 - `NEXT_PUBLIC_UMAMI_SCRIPT_URL` (обычно `https://cloud.umami.is/script.js`);
 - `NEXT_PUBLIC_UMAMI_WEBSITE_ID` (id сайта из Umami);
-- `NEXT_PUBLIC_API_BASE_URL` пока можно оставить пустым.
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (для контейнера PostGIS);
+- `NEXT_PUBLIC_API_BASE_URL` можно оставить пустым (запросы идут через `/api`).
 
 ### 3) Запуск
 
@@ -181,7 +181,15 @@ docker compose ps
 ```bash
 curl -I http://<SERVER_IP>
 docker compose logs -f web
+docker compose logs -f api
+docker compose logs -f db
 docker compose logs -f nginx
+```
+
+Проверка записи заявок в БД:
+
+```bash
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM lead_submissions ORDER BY id DESC LIMIT 10;"
 ```
 
 ### 4) TLS/HTTPS
@@ -191,16 +199,14 @@ docker compose logs -f nginx
 - через внешний TLS (например, балансировщик/edge в Selectel);
 - или отдельным шагом выпустить сертификат Let's Encrypt и подключить `443` в конфиг nginx.
 
-### Подготовка к будущему backend
+### Подготовка к будущей гео-логике
 
-В `infra/nginx/default.conf` уже есть блок `location /api/`. Пока он проксирует в `web`.
-Когда появится backend, достаточно:
+Сейчас backend уже отделен от фронта и пишет заявки в PostGIS. Это позволяет постепенно добавлять:
 
-1. добавить сервис `api` в `docker-compose.yml`;
-2. сменить `proxy_pass` для `/api` на `http://api:<port>`;
-3. перезапустить `docker compose up -d`.
-
-Домен и фронт при этом менять не нужно.
+1. spatial-таблицы (`ООПТ`, `ЛЭП`, подтопления и т.д.);
+2. GiST-индексы и запросы `ST_Intersects`, `ST_Within`, `ST_Distance`;
+3. сервис автоматической генерации отчета;
+4. отдельный RAG/LLM модуль как независимый сервис.
 
 ---
 
