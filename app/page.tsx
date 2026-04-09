@@ -21,10 +21,14 @@ export default function HomePage() {
 
   async function handleCadastreCaptured(cadastre: string) {
     const response = await fetch(`/api/cadastre/${encodeURIComponent(cadastre)}`);
+    const data = (await response.json()) as CadastreLookupResponse & { message?: string };
     if (!response.ok) {
-      throw new Error("cadastre lookup failed");
+      const msg =
+        typeof data?.message === "string" && data.message.length > 0
+          ? data.message
+          : "Не удалось получить данные по кадастру.";
+      throw new Error(msg);
     }
-    const data = (await response.json()) as CadastreLookupResponse;
     setCadastreData(data);
   }
 

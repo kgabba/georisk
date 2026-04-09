@@ -1,6 +1,51 @@
+import https from "node:https";
 import Fastify from "fastify";
 import { Pool } from "pg";
 import { z } from "zod";
+
+function nspdTlsInsecure() {
+  const v = (process.env.NSPD_TLS_INSECURE || "").toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/** GET JSON over HTTPS (Node tls); optional insecure TLS for NSPD behind TLS-inspecting proxies. */
+function httpsGetJson(urlString) {
+  const url = new URL(urlString);
+  const insecure = nspdTlsInsecure();
+  const options = {
+    hostname: url.hostname,
+    port: url.port || 443,
+    path: `${url.pathname}${url.search}`,
+    method: "GET",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    rejectUnauthorized: !insecure
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const body = Buffer.concat(chunks).toString();
+        let data = null;
+        if (body) {
+          try {
+            data = JSON.parse(body);
+          } catch {
+            /* WAF/HTML error page */
+          }
+        }
+        resolve({
+          status: res.statusCode,
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          data
+        });
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 const PORT = Number(process.env.API_PORT ?? 3001);
 const HOST = process.env.API_HOST ?? "0.0.0.0";
@@ -78,10 +123,13 @@ async function fetchCadastreFeature(code) {
   url.searchParams.set("query", code);
   url.searchParams.set("CRS", "EPSG:4326");
 
-  const response = await fetch(url.toString(), { headers: { "Content-Type": "application/json" } });
-  if (!response.ok) throw new Error(`NSPD request failed with status ${response.status}`);
+  const { ok, status, data: payload } = await httpsGetJson(url.toString());
+  if (!ok) {
+    const err = new Error("NSPD_UPSTREAM");
+    err.status = status;
+    throw err;
+  }
 
-  const payload = await response.json();
   const feature = payload?.data?.features?.[0];
   if (!feature) return null;
 
@@ -166,8 +214,35 @@ fastify.get("/api/cadastre/:code", async (request, reply) => {
     });
   }
 
-  const feature = await fetchCadastreFeature(code);
-  if (!feature) return reply.status(404).send({ message: "Cadastre not found" });
+  let feature;
+  try {
+    feature = await fetchCadastreFeature(code);
+  } catch (err) {
+    fastify.log.error(err);
+    const msg = String(err?.message ?? err);
+    const httpStatus = err?.status;
+    if (msg.includes("certificate") || msg.includes("self-signed") || msg.includes("unable to verify")) {
+      return reply.status(503).send({
+        message:
+          "Не удалось установить защищённое соединение с НСПД (TLS). На серверах с инспекцией HTTPS задайте NSPD_TLS_INSECURE=true в .env или подключите корпоративный CA через NODE_EXTRA_CA_CERTS.",
+        code: "NSPD_TLS"
+      });
+    }
+    if (httpStatus === 403 || httpStatus === 401 || httpStatus === 429) {
+      return reply.status(503).send({
+        message:
+          "НСПД отклоняет запросы с IP этого сервера (часто у VPS/датацентров). Нужен другой хостинг или исходящий HTTPS-прокси с «домашним» IP.",
+        code: "NSPD_BLOCKED"
+      });
+    }
+    return reply.status(502).send({
+      message: "Сервис кадастровых данных временно недоступен. Попробуйте позже.",
+      code: "NSPD_UPSTREAM"
+    });
+  }
+  if (!feature) {
+    return reply.status(404).send({ message: "Участок с таким кадастровым номером не найден в НСПД." });
+  }
 
   const rawProperties = feature.properties ?? {};
   const summary = toSummary(rawProperties);

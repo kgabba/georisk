@@ -44,8 +44,12 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
     setIsLoading(true);
     try {
       await onCadastreCaptured(cadastre);
-    } catch (_err) {
-      setError("Не удалось найти участок. Проверьте номер и попробуйте снова.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.length > 0
+          ? err.message
+          : "Не удалось найти участок. Проверьте номер и попробуйте снова."
+      );
     } finally {
       setIsLoading(false);
     }

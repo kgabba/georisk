@@ -30,6 +30,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # If NSPD HTTPS fails with self-signed chain (TLS inspection), set NSPD_TLS_INSECURE=true in .env
+      NSPD_TLS_INSECURE: ${NSPD_TLS_INSECURE:-}
+      # Prefer: mount CA bundle and set NODE_EXTRA_CA_CERTS=/path/in/container (see .env.example)
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
     expose:
       - "3001"
     depends_on:
