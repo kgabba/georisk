@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
+import { CadastreInfoPanel } from "@/components/CadastreInfoPanel";
+import type { CadastreSummary } from "@/lib/cadastre";
 
 const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.LeafletMap), {
   ssr: false
@@ -10,9 +12,17 @@ const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.Lea
 
 interface MapSectionProps {
   onPolygonReady: (coords: [number, number][]) => void;
+  selectedGeoFeature?: GeoJSON.Feature | null;
+  cadastreSummary?: CadastreSummary | null;
+  cadastreRawProperties?: Record<string, unknown> | null;
 }
 
-export function MapSection({ onPolygonReady }: MapSectionProps) {
+export function MapSection({
+  onPolygonReady,
+  selectedGeoFeature = null,
+  cadastreSummary = null,
+  cadastreRawProperties = null
+}: MapSectionProps) {
   const { openContactModal } = useContactAdminModal();
   const [polygon, setPolygon] = useState<[number, number][]>([]);
 
@@ -42,7 +52,7 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
 
           {/* чуть поднимаем карту вверх в лендинге */}
           <div className="-mt-[14px]">
-            <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} />
+            <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} selectedGeoFeature={selectedGeoFeature} />
           </div>
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 sm:mt-5 sm:flex-row sm:items-center">
@@ -57,6 +67,8 @@ export function MapSection({ onPolygonReady }: MapSectionProps) {
               Проверить этот участок
             </button>
           </div>
+
+          <CadastreInfoPanel summary={cadastreSummary} rawProperties={cadastreRawProperties} />
         </div>
       </div>
     </section>

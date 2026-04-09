@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
+import { CadastreInfoPanel } from "@/components/CadastreInfoPanel";
+import type { CadastreSummary } from "@/lib/cadastre";
 
 const MobileMapGeomanInner = dynamic(
   () => import("./MobileMapGeomanInner").then((m) => m.default),
@@ -11,9 +13,17 @@ const MobileMapGeomanInner = dynamic(
 
 type MobileMapSectionProps = {
   onPolygonReady: (coords: [number, number][]) => void;
+  selectedGeoFeature?: GeoJSON.Feature | null;
+  cadastreSummary?: CadastreSummary | null;
+  cadastreRawProperties?: Record<string, unknown> | null;
 };
 
-export function MobileMapSection({ onPolygonReady }: MobileMapSectionProps) {
+export function MobileMapSection({
+  onPolygonReady,
+  selectedGeoFeature = null,
+  cadastreSummary = null,
+  cadastreRawProperties = null
+}: MobileMapSectionProps) {
   const { openContactModal } = useContactAdminModal();
   const [isNarrow, setIsNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -58,7 +68,10 @@ export function MobileMapSection({ onPolygonReady }: MobileMapSectionProps) {
         </p>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-100/80 bg-white/90 shadow-soft ring-1 ring-emerald-50/80">
-          <MobileMapGeomanInner onPolygonChange={handlePolygonChange} />
+          <MobileMapGeomanInner
+            onPolygonChange={handlePolygonChange}
+            selectedGeoFeature={selectedGeoFeature}
+          />
         </div>
 
         <div className="mt-4">
@@ -70,6 +83,8 @@ export function MobileMapSection({ onPolygonReady }: MobileMapSectionProps) {
             Проверить
           </button>
         </div>
+
+        <CadastreInfoPanel summary={cadastreSummary} rawProperties={cadastreRawProperties} />
       </div>
     </section>
   );

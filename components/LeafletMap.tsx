@@ -8,6 +8,7 @@ import "leaflet-draw";
 
 interface LeafletMapProps {
   onPolygonDrawn: (coords: [number, number][]) => void;
+  selectedGeoFeature?: GeoJSON.Feature | null;
 }
 
 type DrawControlConstructor = new (options: {
@@ -35,9 +36,10 @@ type DrawControlConstructor = new (options: {
 type CreatedEvent = L.LeafletEvent & { layer: L.Layer };
 type EditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
 
-export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
+export function LeafletMap({ onPolygonDrawn, selectedGeoFeature = null }: LeafletMapProps) {
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const selectedLayerRef = useRef<L.GeoJSON | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -113,6 +115,34 @@ export function LeafletMap({ onPolygonDrawn }: LeafletMapProps) {
       map.remove();
     };
   }, [onPolygonDrawn]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (selectedLayerRef.current) {
+      map.removeLayer(selectedLayerRef.current);
+      selectedLayerRef.current = null;
+    }
+
+    if (!selectedGeoFeature) return;
+
+    const layer = L.geoJSON(selectedGeoFeature, {
+      style: {
+        color: "#0f766e",
+        weight: 3,
+        fillColor: "#14b8a6",
+        fillOpacity: 0.2
+      }
+    });
+    layer.addTo(map);
+    selectedLayerRef.current = layer;
+
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
+    }
+  }, [selectedGeoFeature]);
 
   // Увеличили карту пропорционально расширенным блокам
   return (

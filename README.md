@@ -53,7 +53,8 @@ npm run lint
 | [`.env.example`](.env.example) | Шаблон переменных окружения (Umami и будущий API URL). |
 | [`backend/`](backend/) | Минимальный backend-сервис для записи заявок в PostGIS (`POST /api/leads`). |
 
-Заявка формы отправляется в backend endpoint `POST /api/leads` и сохраняется в таблицу `lead_submissions` в PostGIS.
+Заявка формы отправляется в backend endpoint `POST /api/leads` и сохраняется в таблицу `lead_submissions` в PostGIS.  
+Поиск по кадастровому номеру выполняется через `GET /api/cadastre/:code` с кэшем в `cadastre_cache` (24 часа).
 
 ---
 
@@ -110,7 +111,7 @@ npm run lint
 
 - **Pricing** — тарифы; тексты и цены внутри компонента.
 - **ReportCarousel** — слайды из `public/report-slide-1.png` … `5.png`, анимации Framer Motion, лайтбокс.
-- **LeadForm** — react-hook-form + zod; сабмит в backend (`/api/leads`).
+- **LeadForm** — react-hook-form + zod; сабмит в backend (`/api/leads`) с сохранением кадастровых данных.
 - **Footer** — нижняя полоса сайта.
 
 ---
@@ -176,6 +177,12 @@ docker compose up -d --build
 docker compose ps
 ```
 
+После старта можно проверить endpoint кадастра:
+
+```bash
+curl "http://<SERVER_IP>/api/cadastre/38:06:144003:4723"
+```
+
 Проверка:
 
 ```bash
@@ -190,6 +197,12 @@ docker compose logs -f nginx
 
 ```bash
 docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM lead_submissions ORDER BY id DESC LIMIT 10;"
+```
+
+Проверка кэша кадастровых ответов:
+
+```bash
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT code, expires_at, created_at FROM cadastre_cache ORDER BY created_at DESC LIMIT 10;"
 ```
 
 ### 4) TLS/HTTPS

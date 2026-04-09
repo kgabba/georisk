@@ -13,10 +13,17 @@ type LeadFormValues = z.infer<typeof leadSchema>;
 
 interface LeadFormProps {
   polygonCoords?: [number, number][] | null;
+  cadastreNumber?: string | null;
+  cadastreFeature?: GeoJSON.Feature | null;
   mode?: "default" | "panel";
 }
 
-export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
+export function LeadForm({
+  polygonCoords,
+  cadastreNumber = null,
+  cadastreFeature = null,
+  mode = "default"
+}: LeadFormProps) {
   const {
     register,
     handleSubmit,
@@ -35,7 +42,9 @@ export function LeadForm({ polygonCoords, mode = "default" }: LeadFormProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...values,
-        polygonCoords: polygonCoords ?? null
+        polygonCoords: polygonCoords ?? null,
+        cadastreNumber,
+        cadastreFeature
       })
     });
 

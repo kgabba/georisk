@@ -10,6 +10,7 @@ type LatLngTuple = [number, number];
 
 export type MobileMapGeomanInnerProps = {
   onPolygonChange: (coords: LatLngTuple[], geojson: GeoJSON.Feature | null) => void;
+  selectedGeoFeature?: GeoJSON.Feature | null;
 };
 
 function polygonFromLayer(layer: L.Layer): { coords: LatLngTuple[]; geojson: GeoJSON.Feature } | null {
@@ -36,9 +37,13 @@ function syncFromMap(map: L.Map, onPolygonChange: MobileMapGeomanInnerProps["onP
   if (data) onPolygonChange(data.coords, data.geojson);
 }
 
-export default function MobileMapGeomanInner({ onPolygonChange }: MobileMapGeomanInnerProps) {
+export default function MobileMapGeomanInner({
+  onPolygonChange,
+  selectedGeoFeature = null
+}: MobileMapGeomanInnerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const selectedLayerRef = useRef<L.GeoJSON | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -112,6 +117,32 @@ export default function MobileMapGeomanInner({ onPolygonChange }: MobileMapGeoma
       mapRef.current = null;
     };
   }, [onPolygonChange]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (selectedLayerRef.current) {
+      map.removeLayer(selectedLayerRef.current);
+      selectedLayerRef.current = null;
+    }
+    if (!selectedGeoFeature) return;
+
+    const layer = L.geoJSON(selectedGeoFeature, {
+      style: {
+        color: "#0f766e",
+        weight: 3,
+        fillColor: "#14b8a6",
+        fillOpacity: 0.2
+      }
+    });
+    layer.addTo(map);
+    selectedLayerRef.current = layer;
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+    }
+  }, [selectedGeoFeature]);
 
   return <div ref={containerRef} className="h-[400px] w-full min-h-[400px]" />;
 }

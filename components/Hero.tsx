@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
 
 interface HeroProps {
-  onCadastreCaptured: (cadastre: string) => void;
+  onCadastreCaptured: (cadastre: string) => Promise<void>;
 }
 
 const DESKTOP_PLACEHOLDER =
@@ -18,6 +18,8 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
   const { openContactModal } = useContactAdminModal();
   const [input, setInput] = useState("");
   const [placeholder, setPlaceholder] = useState(MOBILE_PLACEHOLDER);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -29,7 +31,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     const cadastre = input.trim();
@@ -38,8 +40,15 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
       return;
     }
 
-    onCadastreCaptured(cadastre);
-    openContactModal();
+    setError(null);
+    setIsLoading(true);
+    try {
+      await onCadastreCaptured(cadastre);
+    } catch (_err) {
+      setError("Не удалось найти участок. Проверьте номер и попробуйте снова.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -78,11 +87,13 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
             </div>
             <button
               type="submit"
+              disabled={isLoading}
               className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-md transition hover:bg-blue-600 max-md:mt-0 max-md:shadow-sm md:mt-0 md:w-auto md:rounded-full md:py-2.5 md:shadow-sm"
             >
-              Проверить
+              {isLoading ? "Ищем участок..." : "Проверить"}
             </button>
           </div>
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <p className="hidden text-xs text-slate-600 md:block">или нарисуйте полигон ниже</p>
         </form>
       </div>

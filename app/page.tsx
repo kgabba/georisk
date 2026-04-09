@@ -13,23 +13,49 @@ import { Pricing } from "@/components/Pricing";
 import { EndSemrushPanel } from "@/components/EndSemrushPanel";
 import { Footer } from "@/components/Footer";
 import { ContactAdminModalProvider } from "@/components/ContactAdminModal";
+import type { CadastreLookupResponse } from "@/lib/cadastre";
 
 export default function HomePage() {
   const [polygonCoords, setPolygonCoords] = useState<[number, number][] | null>(null);
+  const [cadastreData, setCadastreData] = useState<CadastreLookupResponse | null>(null);
+
+  async function handleCadastreCaptured(cadastre: string) {
+    const response = await fetch(`/api/cadastre/${encodeURIComponent(cadastre)}`);
+    if (!response.ok) {
+      throw new Error("cadastre lookup failed");
+    }
+    const data = (await response.json()) as CadastreLookupResponse;
+    setCadastreData(data);
+  }
 
   return (
     <ContactAdminModalProvider>
       <div className="min-h-screen bg-mint-50">
         <Navbar />
         <main className="flex flex-col">
-          <Hero onCadastreCaptured={() => {}} />
-          <MapSection onPolygonReady={setPolygonCoords} />
+          <Hero onCadastreCaptured={handleCadastreCaptured} />
+          <MapSection
+            onPolygonReady={setPolygonCoords}
+            selectedGeoFeature={cadastreData?.feature ?? null}
+            cadastreSummary={cadastreData?.summary ?? null}
+            cadastreRawProperties={cadastreData?.rawProperties ?? null}
+          />
           <SolutionsMistakesSection />
-          <MobileMapSection onPolygonReady={setPolygonCoords} />
+          <MobileMapSection
+            onPolygonReady={setPolygonCoords}
+            selectedGeoFeature={cadastreData?.feature ?? null}
+            cadastreSummary={cadastreData?.summary ?? null}
+            cadastreRawProperties={cadastreData?.rawProperties ?? null}
+          />
           <WhatWeCheck />
           <ReportExample />
           <EndSemrushPanel>
-            <LeadForm polygonCoords={polygonCoords} mode="panel" />
+            <LeadForm
+              polygonCoords={polygonCoords}
+              cadastreNumber={cadastreData?.summary?.cadNum ?? null}
+              cadastreFeature={cadastreData?.feature ?? null}
+              mode="panel"
+            />
             <Pricing mode="panel" />
           </EndSemrushPanel>
         </main>
