@@ -34,6 +34,9 @@ services:
       NSPD_TLS_INSECURE: ${NSPD_TLS_INSECURE:-}
       # Prefer: mount CA bundle and set NODE_EXTRA_CA_CERTS=/path/in/container (see .env.example)
       NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
+      # Optional: HTTP proxy for NSPD only (second VPS / residential), e.g. http://user:pass@host:3128
+      NSPD_HTTPS_PROXY: ${NSPD_HTTPS_PROXY:-}
+      NSPD_HTTP_PROXY: ${NSPD_HTTP_PROXY:-}
     expose:
       - "3001"
     depends_on:

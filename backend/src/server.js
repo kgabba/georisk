@@ -1,5 +1,6 @@
 import https from "node:https";
 import Fastify from "fastify";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { Pool } from "pg";
 import { z } from "zod";
 
@@ -8,17 +9,40 @@ function nspdTlsInsecure() {
   return v === "1" || v === "true" || v === "yes";
 }
 
+/** HTTP(S) proxy URL for NSPD only, e.g. http://user:pass@second-vps:3128 */
+function nspdProxyUrl() {
+  return (process.env.NSPD_HTTPS_PROXY || process.env.NSPD_HTTP_PROXY || "").trim();
+}
+
+let nspdAgentCache = { key: "", agent: null };
+
+function getNspdHttpsAgent() {
+  const proxy = nspdProxyUrl();
+  if (!proxy) return undefined;
+  const insecure = nspdTlsInsecure();
+  const key = `${proxy}\0${insecure}`;
+  if (nspdAgentCache.key !== key) {
+    nspdAgentCache = {
+      key,
+      agent: new HttpsProxyAgent(proxy, { rejectUnauthorized: !insecure })
+    };
+  }
+  return nspdAgentCache.agent;
+}
+
 /** GET JSON over HTTPS (Node tls); optional insecure TLS for NSPD behind TLS-inspecting proxies. */
 function httpsGetJson(urlString) {
   const url = new URL(urlString);
   const insecure = nspdTlsInsecure();
+  const proxyAgent = getNspdHttpsAgent();
   const options = {
     hostname: url.hostname,
     port: url.port || 443,
     path: `${url.pathname}${url.search}`,
     method: "GET",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
-    rejectUnauthorized: !insecure
+    rejectUnauthorized: !insecure,
+    ...(proxyAgent ? { agent: proxyAgent } : {})
   };
 
   return new Promise((resolve, reject) => {
@@ -231,7 +255,7 @@ fastify.get("/api/cadastre/:code", async (request, reply) => {
     if (httpStatus === 403 || httpStatus === 401 || httpStatus === 429) {
       return reply.status(503).send({
         message:
-          "НСПД отклоняет запросы с IP этого сервера (часто у VPS/датацентров). Нужен другой хостинг или исходящий HTTPS-прокси с «домашним» IP.",
+          "НСПД отклоняет запросы с IP этого сервера (часто у VPS/датацентров). Укажите в .env NSPD_HTTPS_PROXY на HTTP-прокси с «чистым» IP (например второй VPS), либо другой хостинг.",
         code: "NSPD_BLOCKED"
       });
     }
