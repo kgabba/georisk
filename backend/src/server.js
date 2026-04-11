@@ -30,8 +30,18 @@ function getNspdHttpsAgent() {
   return nspdAgentCache.agent;
 }
 
+/** Заголовки как у клиента карты НСПД (см. nspd-request / браузер) — без них часто 403 с датацентров. */
+const NSPD_GEOSEARCH_HEADERS = {
+  Accept: "*/*",
+  "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Referer:
+    "https://nspd.gov.ru/map?thematic=PKK&zoom=20&coordinate_x=4187280.1010340527&coordinate_y=7507815.775997361&theme_id=1&is_copy_url=true&active_layers=%E8%B3%91%2C%E8%B3%90"
+};
+
 /** GET JSON over HTTPS (Node tls); optional insecure TLS for NSPD behind TLS-inspecting proxies. */
-function httpsGetJson(urlString) {
+function httpsGetJson(urlString, headers = null) {
   const url = new URL(urlString);
   const insecure = nspdTlsInsecure();
   const proxyAgent = getNspdHttpsAgent();
@@ -40,7 +50,11 @@ function httpsGetJson(urlString) {
     port: url.port || 443,
     path: `${url.pathname}${url.search}`,
     method: "GET",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    headers:
+      headers ?? {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
     rejectUnauthorized: !insecure,
     ...(proxyAgent ? { agent: proxyAgent } : {})
   };
@@ -147,7 +161,7 @@ async function fetchCadastreFeature(code) {
   url.searchParams.set("query", code);
   url.searchParams.set("CRS", "EPSG:4326");
 
-  const { ok, status, data: payload } = await httpsGetJson(url.toString());
+  const { ok, status, data: payload } = await httpsGetJson(url.toString(), NSPD_GEOSEARCH_HEADERS);
   if (!ok) {
     const err = new Error("NSPD_UPSTREAM");
     err.status = status;
@@ -171,6 +185,21 @@ function toPolygonWkt(coords) {
   }
   const points = ring.map(([lat, lng]) => `${lng} ${lat}`).join(", ");
   return `POLYGON((${points}))`;
+}
+
+/** Wait until Postgres accepts connections (Compose "healthy" can race with listen). */
+async function waitForPoolReady(maxAttempts = 40, delayMs = 750) {
+  let lastErr;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      await pool.query("SELECT 1");
+      return;
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
 }
 
 async function ensureSchema() {
@@ -340,6 +369,7 @@ fastify.post("/api/leads", async (request, reply) => {
 });
 
 async function start() {
+  await waitForPoolReady();
   await ensureSchema();
   await fastify.listen({ port: PORT, host: HOST });
   fastify.log.info(`API server started on ${HOST}:${PORT}`);
