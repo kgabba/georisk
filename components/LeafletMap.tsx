@@ -5,10 +5,14 @@ import L, { Map as LeafletMapInstance } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
+import type { CadastreMapCandidate } from "@/lib/cadastre";
 
 interface LeafletMapProps {
   onPolygonDrawn: (coords: [number, number][]) => void;
   selectedGeoFeature?: GeoJSON.Feature | null;
+  /** Несколько ЗУ после поиска по полигону — клик по контуру выбирает участок. */
+  cadastreCandidates?: CadastreMapCandidate[] | null;
+  onCadastreCandidateClick?: (code: string) => void;
 }
 
 type DrawControlConstructor = new (options: {
@@ -36,10 +40,16 @@ type DrawControlConstructor = new (options: {
 type CreatedEvent = L.LeafletEvent & { layer: L.Layer };
 type EditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
 
-export function LeafletMap({ onPolygonDrawn, selectedGeoFeature = null }: LeafletMapProps) {
+export function LeafletMap({
+  onPolygonDrawn,
+  selectedGeoFeature = null,
+  cadastreCandidates = null,
+  onCadastreCandidateClick
+}: LeafletMapProps) {
   const mapRef = useRef<LeafletMapInstance | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const selectedLayerRef = useRef<L.GeoJSON | null>(null);
+  const candidatesLayerRef = useRef<L.FeatureGroup | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -143,6 +153,46 @@ export function LeafletMap({ onPolygonDrawn, selectedGeoFeature = null }: Leafle
       map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
     }
   }, [selectedGeoFeature]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (candidatesLayerRef.current) {
+      map.removeLayer(candidatesLayerRef.current);
+      candidatesLayerRef.current = null;
+    }
+
+    if (!cadastreCandidates?.length) return;
+
+    const group = L.featureGroup();
+    for (const c of cadastreCandidates) {
+      const gj = L.geoJSON(c.feature, {
+        style: {
+          color: "#b45309",
+          weight: 2,
+          fillColor: "#fbbf24",
+          fillOpacity: 0.38
+        },
+        onEachFeature: (_f, layer) => {
+          layer.on("click", (e) => {
+            L.DomEvent.stopPropagation(e);
+            onCadastreCandidateClick?.(c.code);
+          });
+        }
+      });
+      gj.addTo(group);
+    }
+    group.addTo(map);
+    candidatesLayerRef.current = group;
+
+    try {
+      const b = group.getBounds();
+      if (b.isValid()) map.fitBounds(b, { padding: [28, 28], maxZoom: 17 });
+    } catch {
+      /* ignore */
+    }
+  }, [cadastreCandidates, onCadastreCandidateClick]);
 
   // Увеличили карту пропорционально расширенным блокам
   return (

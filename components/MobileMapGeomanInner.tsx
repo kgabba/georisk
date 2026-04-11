@@ -5,12 +5,15 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@geoman-io/leaflet-geoman-free";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
+import type { CadastreMapCandidate } from "@/lib/cadastre";
 
 type LatLngTuple = [number, number];
 
 export type MobileMapGeomanInnerProps = {
   onPolygonChange: (coords: LatLngTuple[], geojson: GeoJSON.Feature | null) => void;
   selectedGeoFeature?: GeoJSON.Feature | null;
+  cadastreCandidates?: CadastreMapCandidate[] | null;
+  onCadastreCandidateClick?: (code: string) => void;
 };
 
 function polygonFromLayer(layer: L.Layer): { coords: LatLngTuple[]; geojson: GeoJSON.Feature } | null {
@@ -39,11 +42,14 @@ function syncFromMap(map: L.Map, onPolygonChange: MobileMapGeomanInnerProps["onP
 
 export default function MobileMapGeomanInner({
   onPolygonChange,
-  selectedGeoFeature = null
+  selectedGeoFeature = null,
+  cadastreCandidates = null,
+  onCadastreCandidateClick
 }: MobileMapGeomanInnerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const selectedLayerRef = useRef<L.GeoJSON | null>(null);
+  const candidatesLayerRef = useRef<L.FeatureGroup | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -143,6 +149,46 @@ export default function MobileMapGeomanInner({
       map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
     }
   }, [selectedGeoFeature]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (candidatesLayerRef.current) {
+      map.removeLayer(candidatesLayerRef.current);
+      candidatesLayerRef.current = null;
+    }
+
+    if (!cadastreCandidates?.length) return;
+
+    const group = L.featureGroup();
+    for (const c of cadastreCandidates) {
+      const gj = L.geoJSON(c.feature, {
+        style: {
+          color: "#b45309",
+          weight: 2,
+          fillColor: "#fbbf24",
+          fillOpacity: 0.38
+        },
+        onEachFeature: (_f, layer) => {
+          layer.on("click", (e) => {
+            L.DomEvent.stopPropagation(e);
+            onCadastreCandidateClick?.(c.code);
+          });
+        }
+      });
+      gj.addTo(group);
+    }
+    group.addTo(map);
+    candidatesLayerRef.current = group;
+
+    try {
+      const b = group.getBounds();
+      if (b.isValid()) map.fitBounds(b, { padding: [20, 20], maxZoom: 17 });
+    } catch {
+      /* ignore */
+    }
+  }, [cadastreCandidates, onCadastreCandidateClick]);
 
   return <div ref={containerRef} className="h-[400px] w-full min-h-[400px]" />;
 }

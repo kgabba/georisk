@@ -2,9 +2,8 @@
 
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { useContactAdminModal } from "@/components/ContactAdminModal";
 import { CadastreInfoPanel } from "@/components/CadastreInfoPanel";
-import type { CadastreSummary } from "@/lib/cadastre";
+import type { CadastreMapCandidate, CadastreSummary } from "@/lib/cadastre";
 
 const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.LeafletMap), {
   ssr: false
@@ -12,6 +11,13 @@ const DynamicLeafletMap = dynamic(() => import("./LeafletMap").then((m) => m.Lea
 
 interface MapSectionProps {
   onPolygonReady: (coords: [number, number][]) => void;
+  /** Поиск ЗУ по нарисованному полигону (НСПД); результат — панель кадастра, без всплывающих контактов. */
+  onVerifyDrawnPolygon?: (ring: [number, number][]) => Promise<void>;
+  cadastreCandidates?: CadastreMapCandidate[] | null;
+  onCadastreCandidateSelect?: (code: string) => void;
+  polygonSearchLoading?: boolean;
+  polygonSearchError?: string | null;
+  polygonPickHint?: string | null;
   selectedGeoFeature?: GeoJSON.Feature | null;
   cadastreSummary?: CadastreSummary | null;
   cadastreRawProperties?: Record<string, unknown> | null;
@@ -19,22 +25,39 @@ interface MapSectionProps {
 
 export function MapSection({
   onPolygonReady,
+  onVerifyDrawnPolygon,
+  cadastreCandidates = null,
+  onCadastreCandidateSelect,
+  polygonSearchLoading = false,
+  polygonSearchError = null,
+  polygonPickHint = null,
   selectedGeoFeature = null,
   cadastreSummary = null,
   cadastreRawProperties = null
 }: MapSectionProps) {
-  const { openContactModal } = useContactAdminModal();
   const [polygon, setPolygon] = useState<[number, number][]>([]);
+  const [drawFirstHint, setDrawFirstHint] = useState<string | null>(null);
 
   const handlePolygonDrawn = useCallback((coords: [number, number][]) => {
     setPolygon(coords);
+    if (coords.length) setDrawFirstHint(null);
   }, []);
 
-  function handleCheckClick() {
+  async function handleCheckClick() {
+    setDrawFirstHint(null);
+    if (onVerifyDrawnPolygon) {
+      if (polygon.length < 3) {
+        setDrawFirstHint(
+          "Сначала замкните полигон на карте (инструмент многоугольника справа), минимум три вершины, затем нажмите снова."
+        );
+        return;
+      }
+      await onVerifyDrawnPolygon(polygon);
+      return;
+    }
     if (polygon.length) {
       onPolygonReady(polygon);
     }
-    openContactModal();
   }
 
   return (
@@ -52,19 +75,31 @@ export function MapSection({
 
           {/* чуть поднимаем карту вверх в лендинге */}
           <div className="-mt-[14px]">
-            <DynamicLeafletMap onPolygonDrawn={handlePolygonDrawn} selectedGeoFeature={selectedGeoFeature} />
+            <DynamicLeafletMap
+              onPolygonDrawn={handlePolygonDrawn}
+              selectedGeoFeature={selectedGeoFeature}
+              cadastreCandidates={cadastreCandidates}
+              onCadastreCandidateClick={onCadastreCandidateSelect}
+            />
           </div>
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 sm:mt-5 sm:flex-row sm:items-center">
-            <p className="text-xs text-slate-500">
-              После отрисовки полигона нажмите кнопку — откроются телефон и Telegram администратора.
-            </p>
+            <div className="min-w-0 flex-1 space-y-1.5 text-xs text-slate-500">
+              <p>
+                Обведите участок и нажмите кнопку: мы запросим кадастр по контуру (до 50 соток). Если участков
+                несколько — выберите нужный кликом по подсветке.
+              </p>
+              {polygonPickHint ? <p className="font-medium text-amber-800">{polygonPickHint}</p> : null}
+              {drawFirstHint ? <p className="font-medium text-amber-900">{drawFirstHint}</p> : null}
+              {polygonSearchError ? <p className="text-red-600">{polygonSearchError}</p> : null}
+            </div>
             <button
               type="button"
               onClick={handleCheckClick}
-              className="inline-flex items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600"
+              disabled={polygonSearchLoading}
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-60"
             >
-              Проверить этот участок
+              {polygonSearchLoading ? "Проверяем…" : "Проверить этот участок"}
             </button>
           </div>
 

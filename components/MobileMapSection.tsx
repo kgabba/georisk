@@ -2,9 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
-import { useContactAdminModal } from "@/components/ContactAdminModal";
 import { CadastreInfoPanel } from "@/components/CadastreInfoPanel";
-import type { CadastreSummary } from "@/lib/cadastre";
+import type { CadastreMapCandidate, CadastreSummary } from "@/lib/cadastre";
 
 const MobileMapGeomanInner = dynamic(
   () => import("./MobileMapGeomanInner").then((m) => m.default),
@@ -13,6 +12,12 @@ const MobileMapGeomanInner = dynamic(
 
 type MobileMapSectionProps = {
   onPolygonReady: (coords: [number, number][]) => void;
+  onVerifyDrawnPolygon?: (ring: [number, number][]) => Promise<void>;
+  cadastreCandidates?: CadastreMapCandidate[] | null;
+  onCadastreCandidateSelect?: (code: string) => void;
+  polygonSearchLoading?: boolean;
+  polygonSearchError?: string | null;
+  polygonPickHint?: string | null;
   selectedGeoFeature?: GeoJSON.Feature | null;
   cadastreSummary?: CadastreSummary | null;
   cadastreRawProperties?: Record<string, unknown> | null;
@@ -20,14 +25,20 @@ type MobileMapSectionProps = {
 
 export function MobileMapSection({
   onPolygonReady,
+  onVerifyDrawnPolygon,
+  cadastreCandidates = null,
+  onCadastreCandidateSelect,
+  polygonSearchLoading = false,
+  polygonSearchError = null,
+  polygonPickHint = null,
   selectedGeoFeature = null,
   cadastreSummary = null,
   cadastreRawProperties = null
 }: MobileMapSectionProps) {
-  const { openContactModal } = useContactAdminModal();
   const [isNarrow, setIsNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<[number, number][]>([]);
+  const [drawFirstHint, setDrawFirstHint] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -40,15 +51,27 @@ export function MobileMapSection({
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const handlePolygonChange = useCallback((nextCoords: [number, number][], _gj: GeoJSON.Feature | null) => {
+  const handlePolygonChange = useCallback((nextCoords: [number, number][], geojson: GeoJSON.Feature | null) => {
+    void geojson;
     setCoords(nextCoords);
+    if (nextCoords.length) setDrawFirstHint(null);
   }, []);
 
-  function handleCheck() {
+  async function handleCheck() {
+    setDrawFirstHint(null);
+    if (onVerifyDrawnPolygon) {
+      if (coords.length < 3) {
+        setDrawFirstHint(
+          "Сначала нарисуйте и замкните полигон на карте (кнопка многоугольника справа), затем нажмите «Проверить» снова."
+        );
+        return;
+      }
+      await onVerifyDrawnPolygon(coords);
+      return;
+    }
     if (coords.length) {
       onPolygonReady(coords);
     }
-    openContactModal();
   }
 
   if (!mounted || !isNarrow) return null;
@@ -71,16 +94,24 @@ export function MobileMapSection({
           <MobileMapGeomanInner
             onPolygonChange={handlePolygonChange}
             selectedGeoFeature={selectedGeoFeature}
+            cadastreCandidates={cadastreCandidates}
+            onCadastreCandidateClick={onCadastreCandidateSelect}
           />
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
+          {polygonPickHint ? (
+            <p className="text-sm font-medium text-amber-800">{polygonPickHint}</p>
+          ) : null}
+          {drawFirstHint ? <p className="text-sm font-medium text-amber-900">{drawFirstHint}</p> : null}
+          {polygonSearchError ? <p className="text-sm text-red-600">{polygonSearchError}</p> : null}
           <button
             type="button"
             onClick={handleCheck}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600 sm:w-auto sm:self-start"
+            disabled={polygonSearchLoading}
+            className="inline-flex w-full items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:self-start"
           >
-            Проверить
+            {polygonSearchLoading ? "Проверяем…" : "Проверить"}
           </button>
         </div>
 

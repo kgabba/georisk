@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useContactAdminModal } from "@/components/ContactAdminModal";
-
 interface HeroProps {
   onCadastreCaptured: (cadastre: string) => Promise<void>;
 }
@@ -15,7 +13,6 @@ const MOBILE_SUBTITLE =
   "В один клик — PDF с проверкой ЛЭП, водоохранки, ООПТ и запретов на строительство, плюс подтопление и рельеф. Увидите риски участка до сделки.";
 
 export function Hero({ onCadastreCaptured }: HeroProps) {
-  const { openContactModal } = useContactAdminModal();
   const [input, setInput] = useState("");
   const [placeholder, setPlaceholder] = useState(MOBILE_PLACEHOLDER);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +33,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
 
     const cadastre = input.trim();
     if (!cadastre) {
-      openContactModal();
+      setError("Введите кадастровый номер или прокрутите ниже и выделите участок на карте.");
       return;
     }
 
