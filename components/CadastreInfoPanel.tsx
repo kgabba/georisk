@@ -1,11 +1,14 @@
 "use client";
 
+import type { Ref } from "react";
 import type { CadastreSummary } from "@/lib/cadastre";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
 
 type CadastreInfoPanelProps = {
   summary: CadastreSummary | null;
   rawProperties: Record<string, unknown> | null;
+  /** Якорь для прокрутки к кнопке «Проверить риски» (мобильная карта). */
+  ctaRowRef?: Ref<HTMLDivElement>;
 };
 
 function getOptions(raw: Record<string, unknown> | null): Record<string, unknown> {
@@ -121,7 +124,7 @@ function buildDisplayRows(opts: Record<string, unknown>, summary: CadastreSummar
   return rows;
 }
 
-export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelProps) {
+export function CadastreInfoPanel({ summary, rawProperties, ctaRowRef }: CadastreInfoPanelProps) {
   const { openContactModal } = useContactAdminModal();
 
   if (!summary) return null;
@@ -144,7 +147,10 @@ export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelP
         ))}
       </div>
 
-      <div className="mt-5 flex flex-col items-center gap-3 border-t border-emerald-100/80 pt-4 sm:flex-row sm:items-center sm:gap-5">
+      <div
+        ref={ctaRowRef}
+        className="mt-5 flex flex-col items-center gap-3 border-t border-emerald-100/80 pt-4 sm:flex-row sm:items-center sm:gap-5"
+      >
         <button
           type="button"
           onClick={openContactModal}

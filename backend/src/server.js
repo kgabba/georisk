@@ -547,6 +547,13 @@ async function ensureSchema() {
   await pool.query(
     "CREATE INDEX IF NOT EXISTS idx_lead_submissions_polygon_geom_gist ON lead_submissions USING GIST (polygon_geom)"
   );
+  await pool.query(`
+    CREATE OR REPLACE VIEW applications AS
+    SELECT * FROM lead_submissions
+  `);
+  await pool.query(
+    "COMMENT ON VIEW applications IS 'Заявки с сайта (зеркало lead_submissions; INSERT только в lead_submissions через API).'"
+  );
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS cadastre_cache (

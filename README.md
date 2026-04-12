@@ -10,9 +10,44 @@
 
 1. **Продакшен** почти всегда = `docker compose up -d --build`. Пользователь ходит на **`http://<публичный_IP>/`**. Запросы **`/api/*`** nginx проксирует в контейнер **`api`**, остальное — в **`web`** (Next).
 2. **Кадастр** не запрашивается из браузера напрямую в НСПД: фронт вызывает **`GET /api/cadastre/:code`**, ответ кэшируется в БД **24 ч**.
-3. **Заявки** с формы: **`POST /api/leads`** → таблица **`lead_submissions`** (имя, телефон, опционально полигон WKT/geom, кадастр, JSON объекта).
+3. **Заявки** с формы: **`POST /api/leads`** → таблица **`lead_submissions`**; в БД есть представление **`applications`** (те же строки, удобно смотреть в pgAdmin). Поля: имя, телефон, опционально полигон WKT/geom, кадастр, JSON объекта.
 4. Критичные места кода: **[`app/page.tsx`](app/page.tsx)** (состояние кадастра и полигона), **[`backend/src/server.js`](backend/src/server.js)** (НСПД, схема БД, лиды), **[`infra/nginx/default.conf`](infra/nginx/default.conf)** (маршрутизация), **[`.env.example`](.env.example)** (шаблон переменных).
 5. **`DOMAIN`** в `.env` — в основном для документации/будущего; фронт по умолчанию бьёт в **относительный** `/api/...`. Важнее **публичный IPv4 ВМ** в облачной консоли и **открытый TCP 80** в security group.
+
+### Домен и nginx (`server_name`)
+
+Раньше в конфиге был **`server_name _;`**: при **одном** `server` на порту **80** это **не ломает** запросы с `Host: geo-risk.ru` — такой блок становится **default server** и обрабатывает все Host, для которых нет более точного совпадения. То есть проблема «сайт не открывается по домену» из‑за **`_`** **не подтверждается**.
+
+Типичная реальная причина — заход на **`https://`** при отсутствии TLS на сервере (в Compose по умолчанию только **:80**). Сейчас в **[`infra/nginx/default.conf`](infra/nginx/default.conf)** явно заданы **`geo-risk.ru`** и **`www.geo-risk.ru`**, **`default_server`** на apex (чтобы **`http://<IP>/`** по‑прежнему открывал сайт), редирект **www → apex** по HTTP и каталог **`/.well-known/acme-challenge/`** для Let’s Encrypt.
+
+---
+
+## HTTPS (Let’s Encrypt, опционально)
+
+1. DNS **A** на IP ВМ для `geo-risk.ru` и при необходимости `www`.
+2. Подними стек: `docker compose up -d --build`.
+3. Выпусти сертификат (замени email):
+
+```bash
+docker compose --profile certbot run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d geo-risk.ru -d www.geo-risk.ru \
+  --email you@example.com --agree-tos --no-eff-email
+```
+
+4. Открой **TCP 443** в firewall (security group у облака), затем подключи конфиг HTTPS и порт **443** (только если шаг 3 уже создал файлы в `certbot_conf`; иначе nginx упадёт с ошибкой про `fullchain.pem`):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
+```
+
+Чтобы дальше не указывать два файла вручную, в **`.env`** задай строку **`COMPOSE_FILE=docker-compose.yml:docker-compose.ssl.yml`** (см. **[`.env.example`](.env.example)**) — тогда обычный **`docker compose up -d`** поднимет и **:443**.
+
+5. По желанию переведи HTTP только на редирект: замени монтирование в **`docker-compose.yml`** для nginx с **`default.conf`** на файл **[`infra/nginx/default-http-redirect-to-https.conf`](infra/nginx/default-http-redirect-to-https.conf)** (или скопируй его содержимое в `default.conf` и перезапусти nginx).
+
+Пути к ключам в **[`infra/nginx/https.conf`](infra/nginx/https.conf)** рассчитаны на каталог **`/etc/letsencrypt/live/geo-risk.ru/`** (первый `-d` в certbot). Если выпускал только без `www`, убери лишний `server` для `www` в `https.conf` или добавь домен в certbot.
+
+Продление: раз в несколько дней из cron вызывай **[`scripts/renew-ssl.sh`](scripts/renew-ssl.sh)** (из каталога репозитория на сервере).
 
 ---
 
@@ -24,10 +59,11 @@ flowchart LR
     Browser[Браузер]
   end
   subgraph host [Docker host]
-    Nginx[nginx :80]
+    Nginx[nginx :80 :443]
     Web[web Next :3000]
     Api[api Fastify :3001]
     Db[db PostGIS :5432]
+    PgAdmin[pgAdmin :5050]
   end
   subgraph ext [Внешнее]
     NSPD[nspd.gov.ru]
@@ -36,15 +72,17 @@ flowchart LR
   Nginx -->|"/"| Web
   Nginx -->|"/api/"| Api
   Api --> Db
+  PgAdmin --> Db
   Api -->|HTTPS JSON| NSPD
 ```
 
 | Сервис (`docker-compose`) | Образ / сборка | Роль |
 |---------------------------|------------------|------|
-| **nginx** | `nginx:1.27-alpine` | Порт **80** на хосте; `location /api/` → **api**; `/` → **web**; кэш заголовков для `/_next/static/`. |
+| **nginx** | `nginx:1.27-alpine` | Порты **80** и (после SSL, см. **[`docker-compose.ssl.yml`](docker-compose.ssl.yml)**) **443**; `location /api/` → **api**; `/` → **web**; кэш для `/_next/static/`; Let’s Encrypt через **`/.well-known/`** и том **`certbot_www`**. |
 | **web** | `Dockerfile` (Next) | SSR/статика лендинга. |
 | **api** | `backend/Dockerfile` (Node 20) | Fastify: `/health`, `/api/cadastre/:code`, `/api/leads`. Исходящие запросы к НСПД только отсюда. |
-| **db** | `postgis/postgis:16-3.4` | Таблицы `lead_submissions`, `cadastre_cache`, **`oopt_areas`** (ООПТ: `name_eng`, `geom` в 4326); расширение `postgis`. Импорт shapefile: **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)** и **[`data/oopt/README.md`](data/oopt/README.md)**. |
+| **db** | `postgis/postgis:16-3.4` | Таблицы `lead_submissions`, `cadastre_cache`, **`oopt_areas`** (ООПТ: `name_eng`, `geom` в 4326); представление **`applications`** (= заявки); расширение `postgis`. Импорт shapefile: **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)** и **[`data/oopt/README.md`](data/oopt/README.md)**. |
+| **pgadmin** | `dpage/pgadmin4:8.14` | Веб-UI БД: **`http://127.0.0.1:5050`** (только localhost хоста; снаружи — SSH-туннель). Логин/пароль из **`PGADMIN_DEFAULT_*`** в `.env`. |
 
 ---
 
@@ -61,6 +99,15 @@ flowchart LR
 | `NODE_EXTRA_CA_CERTS` | нет | Путь к PEM доверенных CA **внутри контейнера** api (предпочтительнее, чем отключать TLS). |
 | `NSPD_HTTPS_PROXY` / `NSPD_HTTP_PROXY` | нет | HTTP(S)-прокси **только** для запросов к `nspd.gov.ru` (например второй VPS с «бытовым» IP), если датацентр режут по IP. |
 | `DOMAIN` | нет | Подсказка своего домена/IP для доков; на маршрутизацию nginx не влияет. |
+| `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD` | нет (есть дефолты в Compose) | Учётка входа в pgAdmin; в проде задайте свои значения. |
+
+---
+
+## pgAdmin
+
+После `docker compose up -d --build` открой **`http://127.0.0.1:5050`**, войди email/пароль из `.env`. Зарегистрируй сервер: **Host** `db`, **Port** `5432`, **Maintenance database** = `POSTGRES_DB`, **Username** / **Password** = те же, что для Postgres (`POSTGRES_*`).
+
+Схема **public**: таблица **`lead_submissions`**, view **`applications`**, кэш **`cadastre_cache`**, слой **`oopt_areas`**.
 
 ---
 
@@ -104,7 +151,7 @@ docker compose logs -f api
 Заявки в БД:
 
 ```bash
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM lead_submissions ORDER BY id DESC LIMIT 10;"
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM applications ORDER BY id DESC LIMIT 10;"
 ```
 
 Кэш кадастра:

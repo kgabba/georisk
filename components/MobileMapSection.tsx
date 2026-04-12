@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CadastreInfoPanel } from "@/components/CadastreInfoPanel";
 import type { CadastreMapCandidate, CadastreSummary } from "@/lib/cadastre";
 
@@ -39,6 +39,7 @@ export function MobileMapSection({
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [drawFirstHint, setDrawFirstHint] = useState<string | null>(null);
+  const cadastreCtaRowRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -50,6 +51,20 @@ export function MobileMapSection({
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
+
+  useEffect(() => {
+    if (!cadastreSummary || !mounted || !isNarrow) return;
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        cadastreCtaRowRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+          inline: "nearest"
+        });
+      });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [cadastreSummary, mounted, isNarrow]);
 
   const handlePolygonChange = useCallback((nextCoords: [number, number][], geojson: GeoJSON.Feature | null) => {
     void geojson;
@@ -115,7 +130,11 @@ export function MobileMapSection({
           </button>
         </div>
 
-        <CadastreInfoPanel summary={cadastreSummary} rawProperties={cadastreRawProperties} />
+        <CadastreInfoPanel
+          summary={cadastreSummary}
+          rawProperties={cadastreRawProperties}
+          ctaRowRef={cadastreCtaRowRef}
+        />
       </div>
     </section>
   );
