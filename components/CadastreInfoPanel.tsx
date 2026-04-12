@@ -144,7 +144,7 @@ export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelP
         ))}
       </div>
 
-      <div className="mt-5 flex flex-col gap-2 border-t border-emerald-100/80 pt-4 sm:flex-row sm:items-start sm:gap-4">
+      <div className="mt-5 flex flex-col items-center gap-3 border-t border-emerald-100/80 pt-4 sm:flex-row sm:items-center sm:gap-5">
         <button
           type="button"
           onClick={openContactModal}
@@ -152,7 +152,7 @@ export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelP
         >
           Проверить риски участка
         </button>
-        <p className="max-w-xl text-xs leading-snug text-slate-500 sm:pt-1">
+        <p className="max-w-xl text-center text-sm leading-snug text-slate-500 sm:flex-1 sm:text-left">
           Получите отчёт с рисками и рекомендациями перед сделкой (
           <a
             href="#report-example"
