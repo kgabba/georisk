@@ -1,8 +1,18 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { useEffect, useState } from "react";
+
 interface HeroProps {
   onCadastreCaptured: (cadastre: string) => Promise<void>;
+}
+
+function scrollToMobileMapSection(e: MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  const el = document.getElementById("mobile-map-section");
+  if (el instanceof HTMLElement) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 const DESKTOP_PLACEHOLDER =
@@ -96,6 +106,17 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <p className="hidden text-xs text-slate-600 md:block">или найдите участок на карте</p>
+          <p className="text-center text-sm leading-snug text-slate-600 max-md:block md:hidden">
+            Не знаете кадастровый номер — проверьте{" "}
+            <a
+              href="#mobile-map-section"
+              onClick={scrollToMobileMapSection}
+              className="font-medium text-geoblue underline decoration-geoblue/40 underline-offset-2 transition hover:text-blue-700 hover:decoration-blue-600"
+            >
+              на карте
+            </a>
+            .
+          </p>
         </form>
       </div>
     </section>

@@ -1,32 +1,107 @@
 # GeoRisk — лендинг + API + PostGIS
 
-Одностраничный маркетинговый сайт (MVP) сервиса проверки георисков участка: кадастровый ввод, запрос к НСПД, карты, блоки «что проверяем», пример отчёта, тарифы, форма заявки. Стек фронта — **Next.js 15 (App Router)**, **React 18**, **TypeScript**, **Tailwind CSS**. Бэкенд — **Node.js (Fastify)** + **PostgreSQL/PostGIS** в **Docker Compose**, снаружи — **nginx** на порту **80**.
+Маркетинговый одностраничник: кадастровый ввод → НСПД, карты (десктоп и мобилка), блоки «что проверяем», пример отчёта, тарифы, заявки в БД.
+
+**Стек:** Next.js 15 (App Router), React 18, TypeScript, Tailwind · Node 20 (Fastify) · PostgreSQL/PostGIS · Docker Compose · nginx.
 
 ---
 
-## Зачем этот README (контекст без истории чата)
+## Для новой машины и для ИИ-ассистента
 
-Если репозиторий открыт на **новой машине** или ассистенту нужно быстро войти в контекст:
+Прочитай этот файл **сверху вниз** один раз — дальше не нужно угадывать контекст чата.
 
-1. **Продакшен** почти всегда = `docker compose up -d --build`. Пользователь ходит на **`http://<публичный_IP>/`**. Запросы **`/api/*`** nginx проксирует в контейнер **`api`**, остальное — в **`web`** (Next).
-2. **Кадастр** не запрашивается из браузера напрямую в НСПД: фронт вызывает **`GET /api/cadastre/:code`**, ответ кэшируется в БД **24 ч**.
-3. **Заявки** с формы: **`POST /api/leads`** → таблица **`lead_submissions`**; в БД есть представление **`applications`** (те же строки, удобно смотреть в pgAdmin). Поля: имя, телефон, опционально полигон WKT/geom, кадастр, JSON объекта.
-4. Критичные места кода: **[`app/page.tsx`](app/page.tsx)** (состояние кадастра и полигона), **[`backend/src/server.js`](backend/src/server.js)** (НСПД, схема БД, лиды), **[`infra/nginx/default.conf`](infra/nginx/default.conf)** (маршрутизация), **[`.env.example`](.env.example)** (шаблон переменных).
-5. **`DOMAIN`** в `.env` — в основном для документации/будущего; фронт по умолчанию бьёт в **относительный** `/api/...`. Важнее **публичный IPv4 ВМ** в облачной консоли и **открытый TCP 80** в security group.
-
-### Домен и nginx (`server_name`)
-
-Раньше в конфиге был **`server_name _;`**: при **одном** `server` на порту **80** это **не ломает** запросы с `Host: geo-risk.ru` — такой блок становится **default server** и обрабатывает все Host, для которых нет более точного совпадения. То есть проблема «сайт не открывается по домену» из‑за **`_`** **не подтверждается**.
-
-Типичная реальная причина — заход на **`https://`** при отсутствии TLS на сервере (в Compose по умолчанию только **:80**). Сейчас в **[`infra/nginx/default.conf`](infra/nginx/default.conf)** явно заданы **`geo-risk.ru`** и **`www.geo-risk.ru`**, **`default_server`** на apex (чтобы **`http://<IP>/`** по‑прежнему открывал сайт), редирект **www → apex** по HTTP и каталог **`/.well-known/acme-challenge/`** для Let’s Encrypt.
+1. **Прод** почти всегда: репозиторий на VPS → **`.env`** из **`.env.example`** → **`docker compose up -d --build`**. Снаружи: **nginx :80** (и **:443** после Let’s Encrypt, см. ниже).
+2. **API не в Next:** браузер бьёт в **`/api/*`** на том же хосте; nginx проксирует в контейнер **`api`**. Локальный **`npm run dev`** без прокси **не увидит** кадастр — только полный Compose или ручной прокси на порт API.
+3. **НСПД** (`nspd.gov.ru`): запросы только из **`api`**, с «браузерными» заголовками; часто **403** без них или с датацентрового IP → см. раздел **НСПД** и **`NSPD_*`** в `.env`.
+4. **HTTPS:** до выпуска сертификата открывай **`http://`**. Не подключай **`docker-compose.ssl.yml`**, пока в томе **`certbot_conf`** нет `live/<домен>/fullchain.pem` — иначе nginx не стартует.
+5. **Две карты:** десктоп — секция **`#desktop-map-section`**, узкий экран — **`#mobile-map-section`** (в Hero на мобилке ссылка «на карте» ведёт туда).
 
 ---
 
-## HTTPS (Let’s Encrypt, опционально)
+## Быстрый старт (VPS / прод)
 
-1. DNS **A** на IP ВМ для `geo-risk.ru` и при необходимости `www`.
-2. Подними стек: `docker compose up -d --build`.
-3. Выпусти сертификат (замени email):
+```bash
+git clone <repo-url> && cd georisk
+cp .env.example .env
+# Заполни POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD (и при необходимости NSPD_*, PGADMIN_*, Umami).
+docker compose up -d --build
+docker compose ps
+```
+
+Проверки с ВМ:
+
+```bash
+curl -I http://127.0.0.1/
+curl -sS "http://127.0.0.1/api/cadastre/38:06:144003:4723" | head
+```
+
+В облаке: **security group** — входящие **TCP 80** (минимум), после SSL — **TCP 443**. Публичный IPv4 именно этой ВМ.
+
+---
+
+## Быстрый старт (только фронт на ноутбуке)
+
+```bash
+npm install
+npm run dev
+```
+
+**Ограничение:** запросы вида **`/api/cadastre/...`** пойдут на `localhost:3000` — у Next **нет** этого маршрута → ошибка/пусто. Для кадастра и лидов подними **полный Docker Compose** или настрой reverse-proxy **`/api` → `localhost:3001`**.
+
+---
+
+## Сервисы Docker Compose
+
+| Сервис | Образ / сборка | Роль |
+|--------|------------------|------|
+| **nginx** | `nginx:1.27-alpine` | **:80** всегда; **:443** при подключении **[`docker-compose.ssl.yml`](docker-compose.ssl.yml)** (или **`COMPOSE_FILE`** в `.env`). Прокси **`/` → web:3000**, **`/api/` → api:3001**. ACME: **`/.well-known/acme-challenge/`** → том **`certbot_www`**. Конфиг: **[`infra/nginx/default.conf`](infra/nginx/default.conf)**. |
+| **web** | корневой [`Dockerfile`](Dockerfile) | Next SSR/статика. |
+| **api** | [`backend/Dockerfile`](backend/Dockerfile) | Fastify: `/health`, `/api/cadastre/:code`, POST `/api/cadastre/by-polygon`, `/api/leads`. |
+| **db** | `postgis/postgis:16-3.4` | PostGIS, таблицы заявок, кэш кадастра, слой **ООПТ** и т.д. |
+| **pgadmin** | `dpage/pgadmin4` | UI БД на **`127.0.0.1:5050`** (не торчит наружу по умолчанию). |
+| **certbot** | `certbot/certbot` (профиль **`certbot`**) | Ручной выпуск/renew сертификатов, тома **`certbot_www`**, **`certbot_conf`**. |
+
+---
+
+## Переменные окружения
+
+Файл **`.env`** в git **не коммитится** — копируй с **[`.env.example`](.env.example)**.
+
+| Переменная | Обязательно | Смысл |
+|------------|-------------|--------|
+| `POSTGRES_*` | да для Compose | БД для `db` и `api`. |
+| `COMPOSE_FILE` | нет | После настройки HTTPS: **`docker-compose.yml:docker-compose.ssl.yml`**, чтобы одна команда **`docker compose up`** поднимала и **443**. |
+| `NEXT_PUBLIC_API_BASE_URL` | нет | Обычно **пусто** — относительные **`/api/...`**. |
+| `NEXT_PUBLIC_UMAMI_*` | нет | Umami Cloud. |
+| `NSPD_TLS_INSECURE` | нет | `true` — ослабить проверку TLS **только** для исходящих запросов API к НСПД (корпоративный MITM и т.п.). |
+| `NODE_EXTRA_CA_CERTS` | нет | PEM доверенных CA **внутри контейнера api** (предпочтительнее, чем только `NSPD_TLS_INSECURE`). |
+| `NSPD_HTTPS_PROXY` / `NSPD_HTTP_PROXY` | нет | Прокси **только** для запросов к `nspd.gov.ru` (обход блокировок по IP датацентра). |
+| `PGADMIN_DEFAULT_*` | нет | Логин в pgAdmin (в Compose есть дефолты). |
+| `DOMAIN` | нет | Памятка для человека/доков; на nginx не влияет. |
+
+---
+
+## Подводные камни (чеклист)
+
+| Проблема | Что делать |
+|----------|------------|
+| Сайт по **домену** не открывается, по **IP** открывается | DNS **A** на верный IP; пробовать **`http://`**; до certbot нет **443**. |
+| **`docker-compose.ssl.yml`** подключили раньше сертификата | Nginx падает: нет **`fullchain.pem`**. Сначала **`certonly --webroot`**, потом overlay. |
+| Кадастр **403 / NSPD_BLOCKED** | Заголовки в `server.js`; прокси **`NSPD_HTTPS_PROXY`**; не обязательно «бан IP». |
+| Кадастр **503 / NSPD_TLS** | **`NSPD_TLS_INSECURE=true`** или **`NODE_EXTRA_CA_CERTS`**. |
+| **`permission denied`** на Docker | `sudo usermod -aG docker $USER`, новый SSH-сеанс. |
+| Снаружи не видно сайта | Security group: **80**/**443**; у nginx в `ps` — `0.0.0.0:80->80/tcp`. |
+| pgAdmin не открыть удалённо | Порт **5050** привязан к **127.0.0.1** — только с ВМ или SSH-туннель. |
+| Импорт ООПТ: в git нет `.shp` | В **`.gitignore`** крупные shapefile; кладёшь файлы локально, см. **[`data/oopt/README.md`](data/oopt/README.md)**, скрипт **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)**. |
+| **React Strict Mode** в dev | Двойные эффекты — норма; прод-сборка без этого. |
+
+---
+
+## HTTPS (Let’s Encrypt)
+
+1. DNS **A** на IP ВМ: apex и при необходимости **`www`**.
+2. **`docker compose up -d --build`** (HTTP уже отдаёт **`.well-known`**).
+3. Выпуск сертификата (подставь email):
 
 ```bash
 docker compose --profile certbot run --rm certbot certonly \
@@ -35,23 +110,23 @@ docker compose --profile certbot run --rm certbot certonly \
   --email you@example.com --agree-tos --no-eff-email
 ```
 
-4. Открой **TCP 443** в firewall (security group у облака), затем подключи конфиг HTTPS и порт **443** (только если шаг 3 уже создал файлы в `certbot_conf`; иначе nginx упадёт с ошибкой про `fullchain.pem`):
+4. Открыть **TCP 443** в firewall, затем:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
 ```
 
-Чтобы дальше не указывать два файла вручную, в **`.env`** задай строку **`COMPOSE_FILE=docker-compose.yml:docker-compose.ssl.yml`** (см. **[`.env.example`](.env.example)**) — тогда обычный **`docker compose up -d`** поднимет и **:443**.
+5. В **`.env`**: **`COMPOSE_FILE=docker-compose.yml:docker-compose.ssl.yml`**, чтобы дальше хватало **`docker compose up -d`**.
 
-5. По желанию переведи HTTP только на редирект: замени монтирование в **`docker-compose.yml`** для nginx с **`default.conf`** на файл **[`infra/nginx/default-http-redirect-to-https.conf`](infra/nginx/default-http-redirect-to-https.conf)** (или скопируй его содержимое в `default.conf` и перезапусти nginx).
+Пути в **[`infra/nginx/https.conf`](infra/nginx/https.conf)** — **`/etc/letsencrypt/live/geo-risk.ru/`** (первый **`-d`** в certbot). Опционально заменить HTTP-конфиг на редирект-only: **[`infra/nginx/default-http-redirect-to-https.conf`](infra/nginx/default-http-redirect-to-https.conf)**.
 
-Пути к ключам в **[`infra/nginx/https.conf`](infra/nginx/https.conf)** рассчитаны на каталог **`/etc/letsencrypt/live/geo-risk.ru/`** (первый `-d` в certbot). Если выпускал только без `www`, убери лишний `server` для `www` в `https.conf` или добавь домен в certbot.
+Продление: **[`scripts/renew-ssl.sh`](scripts/renew-ssl.sh)** из cron (раз в несколько дней достаточно).
 
-Продление: раз в несколько дней из cron вызывай **[`scripts/renew-ssl.sh`](scripts/renew-ssl.sh)** (из каталога репозитория на сервере).
+**Домен / `server_name`:** раньше использовался catch-all **`_`** — с одним `server` на **:80** это не ломало домен; типичная путаница — ожидание **HTTPS** без настройки TLS. Сейчас в **`default.conf`** явно **`geo-risk.ru`**, **`www`**, **`default_server`** на apex (запрос по IP тоже попадает в сайт).
 
 ---
 
-## Архитектура (кратко)
+## Архитектура
 
 ```mermaid
 flowchart LR
@@ -68,7 +143,7 @@ flowchart LR
   subgraph ext [Внешнее]
     NSPD[nspd.gov.ru]
   end
-  Browser -->|HTTP| Nginx
+  Browser -->|HTTP/S| Nginx
   Nginx -->|"/"| Web
   Nginx -->|"/api/"| Api
   Api --> Db
@@ -76,115 +151,62 @@ flowchart LR
   Api -->|HTTPS JSON| NSPD
 ```
 
-| Сервис (`docker-compose`) | Образ / сборка | Роль |
-|---------------------------|------------------|------|
-| **nginx** | `nginx:1.27-alpine` | Порты **80** и (после SSL, см. **[`docker-compose.ssl.yml`](docker-compose.ssl.yml)**) **443**; `location /api/` → **api**; `/` → **web**; кэш для `/_next/static/`; Let’s Encrypt через **`/.well-known/`** и том **`certbot_www`**. |
-| **web** | `Dockerfile` (Next) | SSR/статика лендинга. |
-| **api** | `backend/Dockerfile` (Node 20) | Fastify: `/health`, `/api/cadastre/:code`, `/api/leads`. Исходящие запросы к НСПД только отсюда. |
-| **db** | `postgis/postgis:16-3.4` | Таблицы `lead_submissions`, `cadastre_cache`, **`oopt_areas`** (ООПТ: `name_eng`, `geom` в 4326); представление **`applications`** (= заявки); расширение `postgis`. Импорт shapefile: **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)** и **[`data/oopt/README.md`](data/oopt/README.md)**. |
-| **pgadmin** | `dpage/pgadmin4:8.14` | Веб-UI БД: **`http://127.0.0.1:5050`** (только localhost хоста; снаружи — SSH-туннель). Логин/пароль из **`PGADMIN_DEFAULT_*`** в `.env`. |
-
----
-
-## Переменные окружения
-
-Скопируй **[`.env.example`](.env.example)** → **`.env`** (файл `.env` в git не коммитится).
-
-| Переменная | Обязательно | Смысл |
-|------------|-------------|--------|
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | да для Compose | Учётка БД для `db` и `api`. |
-| `NEXT_PUBLIC_API_BASE_URL` | нет | Обычно **пусто**: браузер дергает тот же хост `/api/...` через nginx. |
-| `NEXT_PUBLIC_UMAMI_*` | нет | Аналитика Umami Cloud. |
-| `NSPD_TLS_INSECURE` | нет | `true` — если TLS к НСПД падает (корпоративный MITM, цепочка сертификатов). Только для исходящего запроса в коде API. |
-| `NODE_EXTRA_CA_CERTS` | нет | Путь к PEM доверенных CA **внутри контейнера** api (предпочтительнее, чем отключать TLS). |
-| `NSPD_HTTPS_PROXY` / `NSPD_HTTP_PROXY` | нет | HTTP(S)-прокси **только** для запросов к `nspd.gov.ru` (например второй VPS с «бытовым» IP), если датацентр режут по IP. |
-| `DOMAIN` | нет | Подсказка своего домена/IP для доков; на маршрутизацию nginx не влияет. |
-| `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD` | нет (есть дефолты в Compose) | Учётка входа в pgAdmin; в проде задайте свои значения. |
-
----
-
-## pgAdmin
-
-После `docker compose up -d --build` открой **`http://127.0.0.1:5050`**, войди email/пароль из `.env`. Зарегистрируй сервер: **Host** `db`, **Port** `5432`, **Maintenance database** = `POSTGRES_DB`, **Username** / **Password** = те же, что для Postgres (`POSTGRES_*`).
-
-Схема **public**: таблица **`lead_submissions`**, view **`applications`**, кэш **`cadastre_cache`**, слой **`oopt_areas`**.
-
 ---
 
 ## НСПД и кадастр (backend)
 
 Файл: **[`backend/src/server.js`](backend/src/server.js)**.
 
-- **URL:** `GET https://nspd.gov.ru/api/geoportal/v2/search/geoportal?thematicSearchId=1&query=<код>&CRS=EPSG:4326` (как у публичной карты).
-- **Заголовки:** к запросу к НСПД добавлены **браузероподобные** `User-Agent`, `Referer`, `Accept-Language` (`NSPD_GEOSEARCH_HEADERS`). Без них НСПД часто отвечает **403**, хотя с того же IP **Python** (`nspd-request`) или **curl** с заголовками могут работать — это **не обязательно** «блокировка IP», а WAF/антибот.
-- **TLS:** при ошибках сертификата API отдаёт **503** с кодом `NSPD_TLS` — см. `NSPD_TLS_INSECURE` / `NODE_EXTRA_CA_CERTS` в `.env`.
-- **Кэш:** успешный ответ пишется в **`cadastre_cache`** на **24 часа** (`expires_at`).
-- **Старт API:** перед миграциями схемы вызывается **`waitForPoolReady()`** — несколько попыток `SELECT 1`, чтобы не падать с `ECONNREFUSED` при первом `compose up` (гонка с `depends_on: healthy` у Postgres).
+- **GET** `https://nspd.gov.ru/api/geoportal/v2/search/geoportal?thematicSearchId=1&query=<код>&CRS=EPSG:4326`
+- Заголовки **`NSPD_GEOSEARCH_HEADERS`** (User-Agent, Referer, Accept-Language).
+- Кэш ответа в **`cadastre_cache`** (~24 ч).
+- Старт: **`waitForPoolReady()`** перед миграциями схемы.
 
-Ошибки API для фронта (кадастр): **`NSPD_BLOCKED`** (403/401/429 от НСПД), **`NSPD_TLS`**, общий апстрим **502**.
+Коды ошибок на фронте: **`NSPD_BLOCKED`**, **`NSPD_TLS`**, **502**.
 
 ---
 
-## Docker Compose: запуск и типичные проблемы
+## Заявки и БД
+
+- **`POST /api/leads`** → **`lead_submissions`**; view **`applications`** (то же для удобства в SQL/pgAdmin).
+- Проверка: см. блоки `docker compose exec db psql ...` ниже.
+
+---
+
+## Docker Compose: команды отладки
 
 ```bash
-cp .env.example .env   # заполнить POSTGRES_*
-docker compose up -d --build
-docker compose ps
-```
-
-Проверки:
-
-```bash
-curl -sS "http://127.0.0.1/api/cadastre/38:06:144003:4723" | head
-curl -I http://127.0.0.1/
 docker compose logs -f api
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM applications ORDER BY id DESC LIMIT 5;"
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT code, expires_at FROM cadastre_cache ORDER BY created_at DESC LIMIT 5;"
 ```
 
-| Симптом | Что проверить |
-|---------|----------------|
-| `permission denied` на `docker.sock` | `sudo usermod -aG docker $USER`, затем **новый SSH-сеанс** или `newgrp docker`. |
-| Сайт не открывается извне | В консоли облака: **правильный публичный IPv4** именно этой ВМ (`curl -4 ifconfig.me` **с ВМ**), **security group**: входящий **TCP 80**. У `nginx` в `docker compose ps` должно быть `0.0.0.0:80->80/tcp`. |
-| Лендинг есть, кадастр **502/503** | Логи `api`; НСПД: заголовки (см. выше), TLS, прокси. |
-| `npm run dev` локально без Docker | Фронт дергает **`/api/cadastre/...`** на том же origin — **маршрута Next нет**, ответа не будет, пока не поднят полный стек или не настроен reverse-proxy/rewrite на порт API. Для полной проверки кадастра/лидов используй **Compose** или проксируй `/api` на `localhost:3001`. |
+---
 
-Заявки в БД:
+## pgAdmin
 
-```bash
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, phone, created_at FROM applications ORDER BY id DESC LIMIT 10;"
-```
-
-Кэш кадастра:
-
-```bash
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT code, expires_at FROM cadastre_cache ORDER BY created_at DESC LIMIT 10;"
-```
+**`http://127.0.0.1:5050`** — учётка из **`PGADMIN_DEFAULT_*`**. Сервер в UI: host **`db`**, порт **5432**, БД/пользователь как в **`POSTGRES_*`**.
 
 ---
 
 ## Требования
 
-- **Node.js 18.18+** (рекомендуется **20 LTS**) для локальной сборки фронта и для образа API.
+- **Node.js 20 LTS** (или 18.18+) — локальная сборка и образ **web** / **api**.
 - **npm**.
-- **Docker + Docker Compose plugin** для деплоя как в репозитории.
+- **Docker + Compose plugin** — деплой как в репозитории.
 
 ---
 
-## Локальная разработка (только Next)
+## Локальная разработка (npm)
 
 ```bash
 npm install
-npm run dev
-```
-
-Сборка и прод без контейнера:
-
-```bash
 npm run build
-npm run start
+npm run start   # после build
+npm run lint
 ```
 
-Линт: `npm run lint`.
+См. **`package.json`**: `dev`, `sync-report-slides` и др.
 
 ---
 
@@ -192,74 +214,37 @@ npm run start
 
 | Путь | Назначение |
 |------|------------|
-| [`app/layout.tsx`](app/layout.tsx) | Корневой layout, метаданные, `globals.css`. |
-| [`app/page.tsx`](app/page.tsx) | Главная: `polygonCoords`, `cadastreData`, `handleCadastreCaptured` → `fetch('/api/cadastre/...')`, передача feature/summary в карты и **LeadForm**. |
-| [`app/globals.css`](app/globals.css) | Глобальные стили, Tailwind. |
-| [`components/`](components/) | UI: Hero, карты, форма, модалка контактов, тарифы и т.д. |
-| [`lib/contact.ts`](lib/contact.ts) | Телефон и Telegram для шапки и модалки. |
-| [`lib/cadastre.ts`](lib/cadastre.ts) | Типы ответа `GET /api/cadastre/:code` для фронта. |
-| [`public/`](public/) | Статика, слайды отчёта `report-slide-*.png`. |
-| [`scripts/sync-report-carousel-from-pptx.sh`](scripts/sync-report-carousel-from-pptx.sh) | Опционально: PPTX → PNG в `public/`. |
-| [`tailwind.config.ts`](tailwind.config.ts) | Тема (`mint`, `geoblue`, …). |
-| [`next.config.mjs`](next.config.mjs) | Конфиг Next (`reactStrictMode`). |
-| [`Dockerfile`](Dockerfile) | Сборка образа **web**. |
-| [`docker-compose.yml`](docker-compose.yml) | **web**, **api**, **db**, **nginx**. |
-| [`infra/nginx/default.conf`](infra/nginx/default.conf) | Прокси на **web:3000** и **api:3001**. |
-| [`backend/`](backend/) | Fastify API, `src/server.js`. |
-| [`.env.example`](.env.example) | Шаблон переменных. |
+| [`app/page.tsx`](app/page.tsx) | Главная: кадастр, полигон, карты, лиды. Скролл к картам: **`#desktop-map-section`** / **`#mobile-map-section`**. |
+| [`app/layout.tsx`](app/layout.tsx) | Layout, метаданные. |
+| [`app/globals.css`](app/globals.css) | Tailwind, **`scroll-padding-top`**. |
+| [`components/Hero.tsx`](components/Hero.tsx) | Ввод кадастра; на мобилке ссылка на **`#mobile-map-section`**. |
+| [`components/MapSection.tsx`](components/MapSection.tsx) | Десктоп-карта, **`id="desktop-map-section"`**. |
+| [`components/MobileMapSection.tsx`](components/MobileMapSection.tsx) | Мобильная карта, **`id="mobile-map-section"`**, скролл к CTA после успешного кадастра. |
+| [`components/CadastreInfoPanel.tsx`](components/CadastreInfoPanel.tsx) | «Данные участка», кнопка «Проверить риски…». |
+| [`components/LeadForm.tsx`](components/LeadForm.tsx) | **`POST /api/leads`**. |
+| [`lib/cadastre.ts`](lib/cadastre.ts) | Типы ответов API. |
+| [`lib/contact.ts`](lib/contact.ts) | Телефон, Telegram. |
+| [`backend/src/server.js`](backend/src/server.js) | Fastify, схема БД, НСПД, лиды. |
+| [`docker-compose.yml`](docker-compose.yml) | Полный стек. |
+| [`docker-compose.ssl.yml`](docker-compose.ssl.yml) | Опционально: **443** + **`https.conf`**. |
+| [`infra/nginx/`](infra/nginx/) | nginx, ACME, HTTPS. |
+| [`scripts/import_oopt.sh`](scripts/import_oopt.sh), [`data/oopt/README.md`](data/oopt/README.md) | Импорт слоя ООПТ. |
 
 ---
 
-## Как устроена главная страница
+## Главная страница (логика UI)
 
-Страница **`"use client"`**: карты Leaflet, модалка, формы на клиенте.
-
-### Модалка контактов
-
-[`ContactAdminModalProvider`](components/ContactAdminModal.tsx) — хук `useContactAdminModal()`, `openContactModal()`.
-
-### Состояние
-
-В [`app/page.tsx`](app/page.tsx):
-
-- **`polygonCoords`** — с [`MapSection`](components/MapSection.tsx) / [`MobileMapSection`](components/MobileMapSection.tsx).
-- **`cadastreData`** — после ввода кадастра в **Hero** и успешного **`GET /api/cadastre/:code`**; передаётся в карты (**подсветка объекта**, панель сводки) и в [**LeadForm**](components/LeadForm.tsx) (`cadastreNumber`, `cadastreFeature`, `polygonCoords` уходят в **`POST /api/leads`**).
-
-### Порядок секций и карты
-
-Секции в `main` с **`order`** для адаптива. Поток: **Hero** → **MapSection** (десктоп, `md+`, Leaflet + leaflet-draw) → **SolutionsMistakesSection** → **MobileMapSection** (≤768px, Leaflet + leaflet-geoman-free) → **WhatWeCheck** → **ReportExample** → **EndSemrushPanel** (**LeadForm** + **Pricing**) → **Footer**.
-
-**Navbar:** [`components/Navbar.tsx`](components/Navbar.tsx) — контакты из [`lib/contact.ts`](lib/contact.ts).
+- **`"use client"`** — карты и формы на клиенте.
+- Порядок секций в **`main`** через Tailwind **`order`**: **Hero** → **MapSection** (виден с **`md`**, на телефоне скрыт) → **SolutionsMistakesSection** → **MobileMapSection** (только до **`md`**) → **WhatWeCheck** → **ReportExample** → панель с **LeadForm** + **Pricing** → **Footer**.
+- Состояние **`cadastreData`** / **`polygonCoords`**: см. [`app/page.tsx`](app/page.tsx); после успешного ввода кадастра в Hero вызывается скролл к блоку карты (разный якорь для mobile/desktop).
+- Модалка контактов: **`ContactAdminModalProvider`** + **`useContactAdminModal()`**.
 
 ---
 
 ## Контент и ассеты
 
 - Контакты: **[`lib/contact.ts`](lib/contact.ts)**.
-- Логотип: **`/logo-mark.png`**.
-- Карусель отчёта: **`/report-slide-1.png` … `5.png`**; пересборка из **`отчет.pptx`**: `npm run sync-report-slides` (см. скрипт в `scripts/`).
-
----
-
-## Деплой (облако / VPS)
-
-Установка Docker (пример для Ubuntu) — см. официальную документацию Docker CE + **compose plugin**.
-
-На сервере:
-
-```bash
-cp .env.example .env
-# задать POSTGRES_*; при необходимости NSPD_* и Umami
-docker compose up -d --build
-```
-
-Проверка кадастра снаружи:
-
-```bash
-curl "http://<SERVER_IP>/api/cadastre/38:06:144003:4723"
-```
-
-**HTTPS:** в compose nginx слушает **80**. TLS — на балансировщике, **certbot** на хосте с прокси на 80, или отдельный конфиг **443** в nginx.
+- Слайды отчёта: **`public/report-slide-*.png`**; синхронизация из PPTX — **`npm run sync-report-slides`**.
 
 ---
 
@@ -268,13 +253,12 @@ curl "http://<SERVER_IP>/api/cadastre/38:06:144003:4723"
 | Скрипт | Действие |
 |--------|----------|
 | `dev` | Dev-сервер Next |
-| `build` | Продакшен-сборка |
-| `start` | Запуск после `build` |
+| `build` / `start` | Продакшен |
 | `lint` | ESLint |
 | `sync-report-slides` | PPTX → PNG в `public/` |
 
 ---
 
-## Подготовка к будущей гео-логике
+## Дальнейшая гео-логика
 
-Backend уже пишет заявки в PostGIS; можно добавлять spatial-слои, `ST_Intersects`, генерацию отчётов, отдельные сервисы.
+В БД уже есть геоданные заявок и слои вроде **ООПТ**; можно наращивать **`ST_Intersects`**, отчёты, отдельные воркеры.
