@@ -91,7 +91,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
               disabled={isLoading}
               className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-md transition hover:bg-blue-600 max-md:mt-0 max-md:shadow-sm md:mt-0 md:w-auto md:rounded-full md:py-2.5 md:shadow-sm"
             >
-              {isLoading ? "Ищем участок..." : "Проверить"}
+              {isLoading ? "Ищем участок..." : "Найти"}
             </button>
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}

@@ -85,10 +85,6 @@ export function MapSection({
 
           <div className="mt-4 flex flex-col items-start justify-between gap-3 sm:mt-5 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1 space-y-1.5 text-xs text-slate-500">
-              <p>
-                Обведите участок и нажмите кнопку: мы запросим кадастр по контуру (до 50 соток). Если участков
-                несколько — выберите нужный кликом по подсветке.
-              </p>
               {polygonPickHint ? <p className="font-medium text-amber-800">{polygonPickHint}</p> : null}
               {drawFirstHint ? <p className="font-medium text-amber-900">{drawFirstHint}</p> : null}
               {polygonSearchError ? <p className="text-red-600">{polygonSearchError}</p> : null}
@@ -99,7 +95,7 @@ export function MapSection({
               disabled={polygonSearchLoading}
               className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-60"
             >
-              {polygonSearchLoading ? "Проверяем…" : "Проверить этот участок"}
+              {polygonSearchLoading ? "Ищем…" : "Найти участок"}
             </button>
           </div>
 

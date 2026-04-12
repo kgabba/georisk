@@ -11,7 +11,7 @@ const MOBILE_NAV = [
   { label: "Пример отчёта", hash: "#report-example" },
   { label: "Что мы проверяем", hash: "#what-we-check" },
   { label: "Риски сделки", hash: "#frequent-mistakes" },
-  { label: "Выделить на карте", hash: "#mobile-map-section" },
+  { label: "Проверить по карте", hash: "#mobile-map-section" },
   { label: "Заявка", hash: "#lead-form" },
   { label: "Тарифы", hash: "#pricing" }
 ] as const;

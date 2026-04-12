@@ -62,7 +62,7 @@ export function MobileMapSection({
     if (onVerifyDrawnPolygon) {
       if (coords.length < 3) {
         setDrawFirstHint(
-          "Сначала нарисуйте и замкните полигон на карте (кнопка многоугольника справа), затем нажмите «Проверить» снова."
+          "Сначала нарисуйте и замкните полигон на карте (кнопка многоугольника справа), затем нажмите «Найти участок» снова."
         );
         return;
       }
@@ -111,7 +111,7 @@ export function MobileMapSection({
             disabled={polygonSearchLoading}
             className="inline-flex w-full items-center justify-center rounded-xl bg-geoblue px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:self-start"
           >
-            {polygonSearchLoading ? "Проверяем…" : "Проверить"}
+            {polygonSearchLoading ? "Ищем…" : "Найти участок"}
           </button>
         </div>
 
