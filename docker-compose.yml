@@ -72,6 +72,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GEORISK_UMAMI_SCRIPT_URL: ${GEORISK_UMAMI_SCRIPT_URL:-https://cloud.umami.is/script.js}
+        GEORISK_UMAMI_WEBSITE_ID: ${GEORISK_UMAMI_WEBSITE_ID:-}
+        GEORISK_PUBLIC_SITE_URL: ${GEORISK_PUBLIC_SITE_URL:-https://${DOMAIN:-localhost}}
     env_file:
       - .env
     restart: unless-stopped

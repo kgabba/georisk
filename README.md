@@ -72,7 +72,10 @@ npm run dev
 | `POSTGRES_*` | да для Compose | БД для `db` и `api`. |
 | `COMPOSE_FILE` | нет | После настройки HTTPS: **`docker-compose.yml:docker-compose.ssl.yml`**, чтобы одна команда **`docker compose up`** поднимала и **443**. |
 | `NEXT_PUBLIC_API_BASE_URL` | нет | Обычно **пусто** — относительные **`/api/...`**. |
-| `NEXT_PUBLIC_UMAMI_*` | нет | Umami Cloud. |
+| `GEORISK_UMAMI_SCRIPT_URL` | нет | По умолчанию **`https://cloud.umami.is/script.js`**. |
+| `GEORISK_UMAMI_WEBSITE_ID` | да для трекинга в Docker | UUID сайта из Umami Cloud → **build** образа **web**. |
+| `GEORISK_PUBLIC_SITE_URL` | нет | Для **`NEXT_PUBLIC_API_BASE_URL`** в билде; иначе **`https://${DOMAIN}`**. |
+| `NEXT_PUBLIC_UMAMI_*` | нет | Дубли для **runtime** (`env_file`); на билд не влияют, если пусты в shell — см. **`GEORISK_***`. |
 | `NSPD_TLS_INSECURE` | нет | `true` — ослабить проверку TLS **только** для исходящих запросов API к НСПД (корпоративный MITM и т.п.). |
 | `NODE_EXTRA_CA_CERTS` | нет | PEM доверенных CA **внутри контейнера api** (предпочтительнее, чем только `NSPD_TLS_INSECURE`). |
 | `NSPD_HTTPS_PROXY` / `NSPD_HTTP_PROXY` | нет | Прокси **только** для запросов к `nspd.gov.ru` (обход блокировок по IP датацентра). |
@@ -94,6 +97,7 @@ npm run dev
 | pgAdmin не открыть удалённо | Порт **5050** привязан к **127.0.0.1** — только с ВМ или SSH-туннель. |
 | Импорт ООПТ: в git нет `.shp` | В **`.gitignore`** крупные shapefile; кладёшь файлы локально, см. **[`data/oopt/README.md`](data/oopt/README.md)**, скрипт **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)**. |
 | **React Strict Mode** в dev | Двойные эффекты — норма; прод-сборка без этого. |
+| **Umami / аналитика в Docker** | Счётчик вшивается при **`npm run build`**. В **[`docker-compose.yml`](docker-compose.yml)** для build используются **`GEORISK_UMAMI_*`** и **`GEORISK_PUBLIC_SITE_URL`**, а не `NEXT_PUBLIC_*`: в shell Cursor часто висят **пустые** `NEXT_PUBLIC_*`, и Compose подставляет их вместо значений из `.env`. Задай **`GEORISK_UMAMI_WEBSITE_ID`** в `.env`, пересобери **`docker compose build --no-cache web`**. |
 
 ---
 
