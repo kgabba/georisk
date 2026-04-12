@@ -61,7 +61,10 @@ export function MapSection({
   }
 
   return (
-    <section className="relative z-10 order-2 -mt-[104px] mb-20 hidden px-4 md:order-2 md:block sm:px-6 lg:px-8">
+    <section
+      id="desktop-map-section"
+      className="relative z-10 order-2 -mt-[104px] mb-20 hidden scroll-mt-28 px-4 md:order-2 md:block md:scroll-mt-32 sm:px-6 lg:px-8"
+    >
       <div className="mx-auto max-w-6xl">
         <div className="rounded-3xl bg-white/90 px-4 pb-4 pt-3 shadow-soft ring-1 ring-emerald-50 sm:px-6 sm:pb-6 sm:pt-4 lg:px-8 lg:pb-8 lg:pt-6">
           <div className="mb-2.5 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-baseline sm:justify-between">

@@ -33,7 +33,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
 
     const cadastre = input.trim();
     if (!cadastre) {
-      setError("Введите кадастровый номер или прокрутите ниже и выделите участок на карте.");
+      setError("Введите кадастровый номер или найдите участок на карте ниже.");
       return;
     }
 
@@ -95,7 +95,7 @@ export function Hero({ onCadastreCaptured }: HeroProps) {
             </button>
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <p className="hidden text-xs text-slate-600 md:block">или нарисуйте полигон ниже</p>
+          <p className="hidden text-xs text-slate-600 md:block">или найдите участок на карте</p>
         </form>
       </div>
     </section>

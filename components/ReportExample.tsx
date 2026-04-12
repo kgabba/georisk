@@ -6,7 +6,7 @@ export function ReportExample() {
   return (
     <section
       id="report-example"
-      className="order-2 bg-transparent px-4 pb-8 pt-10 max-md:-mt-1 max-md:scroll-mt-24 max-md:pt-6 sm:px-6 sm:pb-10 md:order-5 md:pt-10 md:scroll-mt-0"
+      className="order-2 scroll-mt-12 bg-transparent px-4 pb-8 pt-10 max-md:-mt-1 max-md:pt-6 sm:px-6 sm:pb-10 md:order-5 md:scroll-mt-16 md:pt-10"
     >
       <div className="mx-auto max-w-6xl overflow-x-visible overflow-y-visible">
         <div>

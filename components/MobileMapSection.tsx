@@ -79,7 +79,7 @@ export function MobileMapSection({
   return (
     <section
       id="mobile-map-section"
-      className="order-5 bg-transparent px-4 pb-12 pt-2 max-md:scroll-mt-24 sm:px-6 lg:px-8"
+      className="order-5 scroll-mt-28 bg-transparent px-4 pb-12 pt-2 sm:px-6 lg:px-8"
       aria-label="Карта для выделения участка"
     >
       <div className="mx-auto max-w-6xl">

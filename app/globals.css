@@ -26,4 +26,6 @@ body {
 
 html {
   scroll-behavior: smooth;
+  /* Фиксированная шапка: якоря (#report-example и др.) не прячут заголовок под navbar */
+  scroll-padding-top: 5.5rem;
 }

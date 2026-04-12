@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { MapSection } from "@/components/MapSection";
@@ -20,6 +20,15 @@ import type {
   CadastrePolygonCandidate
 } from "@/lib/cadastre";
 
+function scrollToCadastreMapBlock() {
+  if (typeof window === "undefined") return;
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+  const sel = isMobile ? "#mobile-map-section" : "#desktop-map-section";
+  window.requestAnimationFrame(() => {
+    document.querySelector(sel)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function HomePageContent() {
   const [polygonCoords, setPolygonCoords] = useState<[number, number][] | null>(null);
   const [cadastreData, setCadastreData] = useState<CadastreLookupResponse | null>(null);
@@ -32,6 +41,19 @@ function HomePageContent() {
     () => cadastreCandidates?.map((c) => ({ code: c.code, feature: c.feature })) ?? null,
     [cadastreCandidates]
   );
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.history.scrollRestoration = "manual";
+    } catch {
+      /* ignore */
+    }
+    const { hash } = window.location;
+    if (!hash || hash === "#top") {
+      window.scrollTo(0, 0);
+    }
+  }, []);
 
   async function handleCadastreCaptured(cadastre: string) {
     setCadastreCandidates(null);
@@ -47,6 +69,7 @@ function HomePageContent() {
       throw new Error(msg);
     }
     setCadastreData(data);
+    scrollToCadastreMapBlock();
   }
 
   const verifyDrawnPolygon = useCallback(
