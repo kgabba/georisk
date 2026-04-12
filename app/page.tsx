@@ -30,7 +30,7 @@ function scrollToCadastreMapBlock() {
     if (!el || !(el instanceof HTMLElement)) return;
     const pad =
       parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 88;
-    const extraDown = isMobile ? 100 : 140;
+    const extraDown = isMobile ? 160 : 220;
     const top = el.getBoundingClientRect().top + window.scrollY - pad + extraDown;
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   };
