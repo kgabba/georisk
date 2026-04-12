@@ -32,3 +32,11 @@ public/.slide-export-tmp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# локальные выгрузки ООПТ (импорт: scripts/import_oopt.sh)
+/data/oopt/*.shp
+/data/oopt/*.dbf
+/data/oopt/*.shx
+/data/oopt/*.prj
+/data/oopt/*.cpg
+/data/oopt/*.zip

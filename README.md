@@ -44,7 +44,7 @@ flowchart LR
 | **nginx** | `nginx:1.27-alpine` | Порт **80** на хосте; `location /api/` → **api**; `/` → **web**; кэш заголовков для `/_next/static/`. |
 | **web** | `Dockerfile` (Next) | SSR/статика лендинга. |
 | **api** | `backend/Dockerfile` (Node 20) | Fastify: `/health`, `/api/cadastre/:code`, `/api/leads`. Исходящие запросы к НСПД только отсюда. |
-| **db** | `postgis/postgis:16-3.4` | Таблицы `lead_submissions`, `cadastre_cache`; расширение `postgis`. |
+| **db** | `postgis/postgis:16-3.4` | Таблицы `lead_submissions`, `cadastre_cache`, **`oopt_areas`** (ООПТ: `name_eng`, `geom` в 4326); расширение `postgis`. Импорт shapefile: **[`scripts/import_oopt.sh`](scripts/import_oopt.sh)** и **[`data/oopt/README.md`](data/oopt/README.md)**. |
 
 ---
 

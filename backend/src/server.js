@@ -559,6 +559,15 @@ async function ensureSchema() {
     )
   `);
   await pool.query("CREATE INDEX IF NOT EXISTS idx_cadastre_cache_expires_at ON cadastre_cache (expires_at)");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS oopt_areas (
+      id SERIAL PRIMARY KEY,
+      name_eng TEXT,
+      geom geometry(MultiPolygon,4326) NOT NULL
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_oopt_areas_geom ON oopt_areas USING GIST (geom)");
 }
 
 fastify.get("/health", async () => ({ ok: true }));
