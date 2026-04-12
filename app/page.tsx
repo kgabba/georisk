@@ -20,12 +20,22 @@ import type {
   CadastrePolygonCandidate
 } from "@/lib/cadastre";
 
+/** После поиска по номеру: к карте, но чуть ниже — чтобы «Данные участка» заходили в кадр. */
 function scrollToCadastreMapBlock() {
   if (typeof window === "undefined") return;
   const isMobile = window.matchMedia("(max-width: 767px)").matches;
   const sel = isMobile ? "#mobile-map-section" : "#desktop-map-section";
+  const run = () => {
+    const el = document.querySelector(sel);
+    if (!el || !(el instanceof HTMLElement)) return;
+    const pad =
+      parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 88;
+    const extraDown = isMobile ? 100 : 140;
+    const top = el.getBoundingClientRect().top + window.scrollY - pad + extraDown;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
   window.requestAnimationFrame(() => {
-    document.querySelector(sel)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(run);
   });
 }
 
