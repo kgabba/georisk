@@ -1,6 +1,7 @@
 "use client";
 
 import type { CadastreSummary } from "@/lib/cadastre";
+import { useContactAdminModal } from "@/components/ContactAdminModal";
 
 type CadastreInfoPanelProps = {
   summary: CadastreSummary | null;
@@ -44,14 +45,36 @@ function cleanReadableAddress(raw: string): string {
   return stripped.trim() || t;
 }
 
+/** Склонение для целого числа соток (1 сотка, 2–4 сотки, 5+ и 11–14 — соток). */
+function pluralSotokWord(n: number): string {
+  const k = Math.abs(Math.trunc(n)) % 100;
+  const k10 = k % 10;
+  if (k >= 11 && k <= 14) return "соток";
+  if (k10 === 1) return "сотка";
+  if (k10 >= 2 && k10 <= 4) return "сотки";
+  return "соток";
+}
+
 function formatAreaM2AndSotok(m2: number): string {
   const mStr = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Math.round(m2));
   const sotok = m2 / 100;
-  const sStr = new Intl.NumberFormat("ru-RU", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-  }).format(sotok);
-  return `${mStr} м² (${sStr} соток)`;
+  const rounded = Math.round(sotok);
+  const isWhole = Math.abs(sotok - rounded) < 1e-6;
+
+  let sPart: string;
+  if (isWhole) {
+    const word = pluralSotokWord(rounded);
+    const numStr = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(rounded);
+    sPart = `${numStr} ${word}`;
+  } else {
+    const numStr = new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(sotok);
+    sPart = `${numStr} соток`;
+  }
+
+  return `${mStr} м² (${sPart})`;
 }
 
 function formatCadastralCostRub(value: number): string {
@@ -99,6 +122,8 @@ function buildDisplayRows(opts: Record<string, unknown>, summary: CadastreSummar
 }
 
 export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelProps) {
+  const { openContactModal } = useContactAdminModal();
+
   if (!summary) return null;
 
   const opts = getOptions(rawProperties);
@@ -117,6 +142,26 @@ export function CadastreInfoPanel({ summary, rawProperties }: CadastreInfoPanelP
             <span className="font-medium">{r.label}:</span> {r.value}
           </p>
         ))}
+      </div>
+
+      <div className="mt-5 flex flex-col gap-2 border-t border-emerald-100/80 pt-4 sm:flex-row sm:items-start sm:gap-4">
+        <button
+          type="button"
+          onClick={openContactModal}
+          className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600"
+        >
+          Проверить риски участка
+        </button>
+        <p className="max-w-xl text-xs leading-snug text-slate-500 sm:pt-1">
+          Получите отчёт с рисками и рекомендациями перед сделкой (
+          <a
+            href="#report-example"
+            className="text-slate-600 underline decoration-slate-400 underline-offset-2 transition hover:text-geoblue"
+          >
+            пример отчёта
+          </a>
+          ).
+        </p>
       </div>
     </div>
   );
