@@ -11,3 +11,8 @@ pnpm-debug.log*
 .env.*
 !.env.example
 README.md
+
+# Local OSM extracts (multi-GB); not needed for Next.js image build
+**/*.osm.pbf
+data/landuse/*.pbf
+data/**/*.pbf

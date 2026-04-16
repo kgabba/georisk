@@ -38,9 +38,10 @@ fi
 
 PG_CONN="host=db port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}"
 
-echo "Создание/подготовка таблицы landuse_areas…"
+echo "Создание таблицы landuse_areas (полная схема; старый ogr2ogr без landuse/risk пересоздаётся)…"
 docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 <<'SQL'
-CREATE TABLE IF NOT EXISTS landuse_areas (
+DROP TABLE IF EXISTS landuse_areas CASCADE;
+CREATE TABLE landuse_areas (
   raw TEXT,
   landuse TEXT,
   name TEXT,
@@ -48,10 +49,9 @@ CREATE TABLE IF NOT EXISTS landuse_areas (
   region TEXT NOT NULL DEFAULT 'volga',
   geom geometry(MultiPolygon,4326) NOT NULL
 );
-TRUNCATE landuse_areas;
-CREATE INDEX IF NOT EXISTS idx_landuse_areas_geom ON landuse_areas USING GIST (geom);
-CREATE INDEX IF NOT EXISTS idx_landuse_areas_landuse ON landuse_areas (landuse);
-CREATE INDEX IF NOT EXISTS idx_landuse_areas_risk ON landuse_areas (risk);
+CREATE INDEX idx_landuse_areas_geom ON landuse_areas USING GIST (geom);
+CREATE INDEX idx_landuse_areas_landuse ON landuse_areas (landuse);
+CREATE INDEX idx_landuse_areas_risk ON landuse_areas (risk);
 SQL
 
 echo "Импорт $SHP_PATH (слой $SHP_BASE) в landuse_areas…"
