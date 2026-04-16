@@ -40,3 +40,11 @@ next-env.d.ts
 /data/oopt/*.prj
 /data/oopt/*.cpg
 /data/oopt/*.zip
+
+# локальные выгрузки landuse (импорт: scripts/import_landuse.sh)
+/data/landuse/*.shp
+/data/landuse/*.dbf
+/data/landuse/*.shx
+/data/landuse/*.prj
+/data/landuse/*.cpg
+/data/landuse/*.zip

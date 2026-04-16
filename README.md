@@ -39,6 +39,47 @@ curl -sS "http://127.0.0.1/api/cadastre/38:06:144003:4723" | head
 
 ---
 
+## Переезд на новый сервер (чеклист)
+
+Если текущая ВМ тормозит (HDD, мало RAM/CPU), безопасный путь — поднять новый VPS и переключить DNS.
+
+1. На старом сервере сохрани БД в дамп:
+
+```bash
+cd georisk
+docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > backup.sql
+```
+
+2. На новом сервере:
+
+```bash
+git clone <repo-url> && cd georisk
+git checkout feature   # или нужная ветка релиза
+cp .env.example .env   # заполнить переменные как на старом сервере
+docker compose up -d --build
+```
+
+3. Восстанови БД:
+
+```bash
+docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sql
+```
+
+4. Если был HTTPS через certbot:
+   - либо заново выпусти сертификат (раздел ниже),
+   - либо перенеси том `certbot_conf` со старого сервера.
+
+5. Проверь:
+   - `curl -I http://127.0.0.1/`
+   - `docker compose ps`
+   - запросы в pgAdmin / `SELECT COUNT(*) ...`
+
+6. Только после проверки переведи DNS A-запись домена на новый IP.
+
+Важно: данные Postgres **не переносятся автоматически** с `git clone`. Репозиторий переносит код/скрипты, а БД живёт в docker volume (`pg_data`), поэтому нужен `pg_dump/psql` (или перенос volume на уровне Docker/файловой системы).
+
+---
+
 ## Быстрый старт (только фронт на ноутбуке)
 
 ```bash
