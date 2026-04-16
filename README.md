@@ -47,7 +47,9 @@ curl -sS "http://127.0.0.1/api/cadastre/38:06:144003:4723" | head
 
 ```bash
 cd georisk
-docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > backup.sql
+set -a && source .env && set +a
+# Полный SQL-дамп может быть очень большим. Для быстрого переезда используем core-дамп:
+docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -Z 9 -T public.landuse_areas -T public.oopt_areas > backups/postgres-core.dump
 ```
 
 2. На новом сервере:
@@ -62,7 +64,8 @@ docker compose up -d --build
 3. Восстанови БД:
 
 ```bash
-docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sql
+set -a && source .env && set +a
+docker compose exec -T db pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backups/postgres-core.dump
 ```
 
 4. Если был HTTPS через certbot:
@@ -77,6 +80,8 @@ docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sq
 6. Только после проверки переведи DNS A-запись домена на новый IP.
 
 Важно: данные Postgres **не переносятся автоматически** с `git clone`. Репозиторий переносит код/скрипты, а БД живёт в docker volume (`pg_data`), поэтому нужен `pg_dump/psql` (или перенос volume на уровне Docker/файловой системы).
+
+Дополнительно: можно хранить core-дамп прямо в репозитории в папке **[`backups/`](backups/)** и вытягивать его на новый сервер через `git pull`. Детали — в **[`backups/README.md`](backups/README.md)**.
 
 ---
 
