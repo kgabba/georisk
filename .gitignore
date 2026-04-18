@@ -48,3 +48,13 @@ next-env.d.ts
 /data/landuse/*.prj
 /data/landuse/*.cpg
 /data/landuse/*.zip
+
+# большие локальные OSM-экстракты и дампы БД
+/data/landuse/*.pbf
+/backups/*.dump
+/backups/*.dump.gz
+
+# дополнительные служебные файлы shapefile
+/data/oopt/*.sbn
+/data/oopt/*.sbx
+/data/oopt/*.shp.xml
