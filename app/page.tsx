@@ -161,6 +161,7 @@ function HomePageContent() {
           selectedGeoFeature={cadastreData?.feature ?? null}
           cadastreSummary={cadastreData?.summary ?? null}
           cadastreRawProperties={cadastreData?.rawProperties ?? null}
+          cadastreFeature={cadastreData?.feature ?? null}
         />
         <SolutionsMistakesSection />
         <MobileMapSection
@@ -174,6 +175,7 @@ function HomePageContent() {
           selectedGeoFeature={cadastreData?.feature ?? null}
           cadastreSummary={cadastreData?.summary ?? null}
           cadastreRawProperties={cadastreData?.rawProperties ?? null}
+          cadastreFeature={cadastreData?.feature ?? null}
         />
         <WhatWeCheck />
         <ReportExample />

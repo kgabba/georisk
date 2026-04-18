@@ -96,6 +96,25 @@ npm run dev
 
 ---
 
+## Dev-контур без трогания прода
+
+Для быстрых правок фронта подними только отдельный `web-dev`, не перезапуская продовые `web/nginx`.
+
+```bash
+# запуск dev-фронта (использует текущие api/db из docker-compose.yml)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d web-dev
+
+# смотреть логи
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f web-dev
+
+# остановить только dev-фронт
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web-dev
+```
+
+Открывай dev-версию на **`http://127.0.0.1:3002`**. БД остается общей и постоянной (том `pg_data` у сервиса `db`), дублировать БД не нужно.
+
+---
+
 ## Сервисы Docker Compose
 
 | Сервис | Образ / сборка | Роль |

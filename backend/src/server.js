@@ -335,6 +335,17 @@ const polygonRingSchema = z.object({
   ring: z.array(z.tuple([z.number(), z.number()])).min(3).max(MAX_POLYGON_VERTICES)
 });
 
+const riskMapRequestSchema = z.object({
+  cadastreFeature: z.object({
+    type: z.literal("Feature"),
+    geometry: z.any(),
+    properties: z.record(z.any()).nullable().optional()
+  })
+});
+
+const RISK_MAP_HALF_EXTENT_METERS = 4000;
+const RISK_MAP_LAYER_LIMIT = 8000;
+
 function toWgs84Coord([x, y]) {
   const lon = (x / 6378137.0) * (180 / Math.PI);
   const lat = (2 * Math.atan(Math.exp(y / 6378137.0)) - Math.PI / 2) * (180 / Math.PI);
@@ -415,6 +426,26 @@ async function getPolygonAreaSqMFromRing(ring) {
     return Number(v);
   } catch {
     return null;
+  }
+}
+
+function rowsToFeatureCollection(rows) {
+  return {
+    type: "FeatureCollection",
+    features: rows.map((r) => ({
+      type: "Feature",
+      geometry: r.geometry,
+      properties: r.properties ?? {}
+    }))
+  };
+}
+
+async function queryRiskLayer(sql, geomJson) {
+  try {
+    const { rows } = await pool.query(sql, [geomJson, RISK_MAP_HALF_EXTENT_METERS, RISK_MAP_LAYER_LIMIT]);
+    return rowsToFeatureCollection(rows);
+  } catch {
+    return { type: "FeatureCollection", features: [] };
   }
 }
 
@@ -704,6 +735,189 @@ fastify.post("/api/cadastre/by-polygon", async (request, reply) => {
       code: "INTERNAL"
     });
   }
+});
+
+fastify.post("/api/risk-map/overlays", async (request, reply) => {
+  const parsed = riskMapRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({
+      message: "Некорректная геометрия участка",
+      issues: parsed.error.flatten()
+    });
+  }
+
+  const cadastreFeature = parsed.data.cadastreFeature;
+  const geomJson = JSON.stringify(cadastreFeature.geometry ?? null);
+  if (!cadastreFeature.geometry) {
+    return reply.status(400).send({ message: "Отсутствует геометрия участка" });
+  }
+
+  const parcelSql = `
+    WITH parcel AS (
+      SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($1::text), 4326)) AS geom
+    )
+    SELECT ST_AsGeoJSON(geom)::json AS geometry
+    FROM parcel
+  `;
+
+  const extentSql = `
+    WITH parcel AS (
+      SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($1::text), 4326)) AS geom
+    ),
+    extent AS (
+      SELECT ST_Transform(ST_Expand(ST_Transform(geom, 3857), $2::int), 4326) AS geom
+      FROM parcel
+    )
+    SELECT ST_AsGeoJSON(ST_Envelope(geom))::json AS geometry
+    FROM extent
+  `;
+
+  const baseEnvelopeCte = `
+    WITH parcel AS (
+      SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($1::text), 4326)) AS geom
+    ),
+    extent AS (
+      SELECT ST_Transform(ST_Expand(ST_Transform(geom, 3857), $2::int), 4326) AS geom
+      FROM parcel
+    )
+  `;
+
+  const powerLinesSql = `
+    ${baseEnvelopeCte},
+    src AS (
+      SELECT p.geom
+      FROM power_lines p, extent e
+      WHERE ST_Intersects(p.geom, e.geom)
+      LIMIT $3
+    ),
+    merged AS (
+      SELECT ST_UnaryUnion(ST_Collect(geom)) AS geom FROM src
+    )
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.00001))::json AS geometry,
+      jsonb_build_object('layer', 'power_lines', 'merged', true) AS properties
+    FROM merged m
+    WHERE m.geom IS NOT NULL AND NOT ST_IsEmpty(m.geom)
+  `;
+
+  const powerBuffersSql = `
+    ${baseEnvelopeCte},
+    src AS (
+      SELECT p.geom
+      FROM power_buffers p, extent e
+      WHERE ST_Intersects(p.geom, e.geom)
+      LIMIT $3
+    ),
+    merged AS (
+      SELECT ST_UnaryUnion(ST_Collect(geom)) AS geom FROM src
+    )
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.00001))::json AS geometry,
+      jsonb_build_object('layer', 'power_buffers', 'merged', true) AS properties
+    FROM merged m
+    WHERE m.geom IS NOT NULL AND NOT ST_IsEmpty(m.geom)
+  `;
+
+  const waterSaveSql = `
+    ${baseEnvelopeCte},
+    src AS (
+      SELECT w.geom
+      FROM water_save w, extent e
+      WHERE ST_Intersects(w.geom, e.geom)
+      LIMIT $3
+    ),
+    merged AS (
+      SELECT ST_UnaryUnion(ST_Collect(geom)) AS geom FROM src
+    )
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.00001))::json AS geometry,
+      jsonb_build_object('layer', 'water_save', 'merged', true) AS properties
+    FROM merged m
+    WHERE m.geom IS NOT NULL AND NOT ST_IsEmpty(m.geom)
+  `;
+
+  const waterBuffersSql = `
+    ${baseEnvelopeCte},
+    src AS (
+      SELECT w.geom
+      FROM river_lines_buffer w, extent e
+      WHERE ST_Intersects(w.geom, e.geom)
+      LIMIT $3
+    ),
+    merged AS (
+      SELECT ST_UnaryUnion(ST_Collect(geom)) AS geom FROM src
+    )
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.00001))::json AS geometry,
+      jsonb_build_object('layer', 'river_lines_buffer', 'merged', true) AS properties
+    FROM merged m
+    WHERE m.geom IS NOT NULL AND NOT ST_IsEmpty(m.geom)
+  `;
+
+  const ooptSql = `
+    ${baseEnvelopeCte}
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(o.geom, 0.00001))::json AS geometry,
+      jsonb_build_object(
+        'id', o.id,
+        'name_eng', o.name_eng
+      ) AS properties
+    FROM oopt_areas o, extent e
+    WHERE ST_Intersects(o.geom, e.geom)
+    LIMIT $3
+  `;
+
+  const landuseIntersectSql = `
+    WITH parcel AS (
+      SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($1::text), 4326)) AS geom
+    )
+    SELECT
+      ST_AsGeoJSON(ST_SimplifyPreserveTopology(l.geom, 0.00001))::json AS geometry,
+      jsonb_build_object(
+        'raw', l.raw,
+        'landuse', l.landuse,
+        'name', l.name,
+        'risk', l.risk,
+        'region', l.region
+      ) AS properties
+    FROM landuse_areas l, parcel p
+    WHERE ST_Intersects(l.geom, p.geom)
+      AND LOWER(COALESCE(l.risk, '')) IN ('средний', 'высокий', 'medium', 'high')
+    LIMIT $3
+  `;
+
+  const [{ rows: parcelRows }, { rows: extentRows }] = await Promise.all([
+    pool.query(parcelSql, [geomJson]),
+    pool.query(extentSql, [geomJson, RISK_MAP_HALF_EXTENT_METERS])
+  ]);
+
+  const [powerLines, powerBuffers, waterSave, waterBuffers, ooptAreas, landuseIntersected] = await Promise.all([
+    queryRiskLayer(powerLinesSql, geomJson),
+    queryRiskLayer(powerBuffersSql, geomJson),
+    queryRiskLayer(waterSaveSql, geomJson),
+    queryRiskLayer(waterBuffersSql, geomJson),
+    queryRiskLayer(ooptSql, geomJson),
+    queryRiskLayer(landuseIntersectSql, geomJson)
+  ]);
+
+  return reply.status(200).send({
+    parcel: {
+      type: "Feature",
+      geometry: parcelRows[0]?.geometry ?? cadastreFeature.geometry,
+      properties: cadastreFeature.properties ?? {}
+    },
+    extentBox: {
+      type: "Feature",
+      geometry: extentRows[0]?.geometry ?? null,
+      properties: { halfExtentMeters: RISK_MAP_HALF_EXTENT_METERS }
+    },
+    powerLines,
+    powerBuffers,
+    waterSave,
+    waterBuffers,
+    ooptAreas,
+    landuseIntersected
+  });
 });
 
 fastify.post("/api/leads", async (request, reply) => {

@@ -21,6 +21,7 @@ type MobileMapSectionProps = {
   selectedGeoFeature?: GeoJSON.Feature | null;
   cadastreSummary?: CadastreSummary | null;
   cadastreRawProperties?: Record<string, unknown> | null;
+  cadastreFeature?: GeoJSON.Feature | null;
 };
 
 export function MobileMapSection({
@@ -33,7 +34,8 @@ export function MobileMapSection({
   polygonPickHint = null,
   selectedGeoFeature = null,
   cadastreSummary = null,
-  cadastreRawProperties = null
+  cadastreRawProperties = null,
+  cadastreFeature = null
 }: MobileMapSectionProps) {
   const [isNarrow, setIsNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -133,6 +135,7 @@ export function MobileMapSection({
         <CadastreInfoPanel
           summary={cadastreSummary}
           rawProperties={cadastreRawProperties}
+          cadastreFeature={cadastreFeature}
           ctaRowRef={cadastreCtaRowRef}
         />
       </div>

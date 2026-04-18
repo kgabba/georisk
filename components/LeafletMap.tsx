@@ -123,12 +123,15 @@ export function LeafletMap({
 
     return () => {
       map.remove();
+      mapRef.current = null;
+      selectedLayerRef.current = null;
+      candidatesLayerRef.current = null;
     };
   }, [onPolygonDrawn]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !(map as L.Map & { _loaded?: boolean })._loaded) return;
 
     if (selectedLayerRef.current) {
       map.removeLayer(selectedLayerRef.current);
@@ -145,7 +148,11 @@ export function LeafletMap({
         fillOpacity: 0.2
       }
     });
-    layer.addTo(map);
+    try {
+      layer.addTo(map);
+    } catch {
+      return;
+    }
     selectedLayerRef.current = layer;
 
     const bounds = layer.getBounds();
@@ -156,7 +163,7 @@ export function LeafletMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !(map as L.Map & { _loaded?: boolean })._loaded) return;
 
     if (candidatesLayerRef.current) {
       map.removeLayer(candidatesLayerRef.current);
@@ -183,7 +190,11 @@ export function LeafletMap({
       });
       gj.addTo(group);
     }
-    group.addTo(map);
+    try {
+      group.addTo(map);
+    } catch {
+      return;
+    }
     candidatesLayerRef.current = group;
 
     try {

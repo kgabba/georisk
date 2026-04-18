@@ -21,6 +21,7 @@ interface MapSectionProps {
   selectedGeoFeature?: GeoJSON.Feature | null;
   cadastreSummary?: CadastreSummary | null;
   cadastreRawProperties?: Record<string, unknown> | null;
+  cadastreFeature?: GeoJSON.Feature | null;
 }
 
 export function MapSection({
@@ -33,7 +34,8 @@ export function MapSection({
   polygonPickHint = null,
   selectedGeoFeature = null,
   cadastreSummary = null,
-  cadastreRawProperties = null
+  cadastreRawProperties = null,
+  cadastreFeature = null
 }: MapSectionProps) {
   const [polygon, setPolygon] = useState<[number, number][]>([]);
   const [drawFirstHint, setDrawFirstHint] = useState<string | null>(null);
@@ -102,7 +104,11 @@ export function MapSection({
             </button>
           </div>
 
-          <CadastreInfoPanel summary={cadastreSummary} rawProperties={cadastreRawProperties} />
+          <CadastreInfoPanel
+            summary={cadastreSummary}
+            rawProperties={cadastreRawProperties}
+            cadastreFeature={cadastreFeature}
+          />
         </div>
       </div>
     </section>

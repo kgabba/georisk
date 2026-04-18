@@ -7,6 +7,7 @@ import { useContactAdminModal } from "@/components/ContactAdminModal";
 type CadastreInfoPanelProps = {
   summary: CadastreSummary | null;
   rawProperties: Record<string, unknown> | null;
+  cadastreFeature?: GeoJSON.Feature | null;
   /** Якорь для прокрутки к кнопке «Проверить риски» (мобильная карта). */
   ctaRowRef?: Ref<HTMLDivElement>;
 };
@@ -124,7 +125,12 @@ function buildDisplayRows(opts: Record<string, unknown>, summary: CadastreSummar
   return rows;
 }
 
-export function CadastreInfoPanel({ summary, rawProperties, ctaRowRef }: CadastreInfoPanelProps) {
+export function CadastreInfoPanel({
+  summary,
+  rawProperties,
+  cadastreFeature,
+  ctaRowRef
+}: CadastreInfoPanelProps) {
   const { openContactModal } = useContactAdminModal();
 
   if (!summary) return null;
@@ -132,6 +138,19 @@ export function CadastreInfoPanel({ summary, rawProperties, ctaRowRef }: Cadastr
   const opts = getOptions(rawProperties);
   const rows = buildDisplayRows(opts, summary);
   const cadNum = summary.cadNum ?? summary.label ?? "—";
+
+  function handleCheckRisksClick() {
+    if (typeof window !== "undefined" && cadastreFeature) {
+      const cadastreNumber = summary?.cadNum ?? summary?.label ?? null;
+      window.localStorage.setItem(
+        "georisk:risk-map-payload",
+        JSON.stringify({ cadastreFeature, cadastreNumber })
+      );
+      window.open("/risk-map", "_blank", "noopener,noreferrer");
+      return;
+    }
+    openContactModal();
+  }
 
   return (
     <div className="mt-4 rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-soft ring-1 ring-emerald-50">
@@ -145,6 +164,11 @@ export function CadastreInfoPanel({ summary, rawProperties, ctaRowRef }: Cadastr
             <span className="font-medium">{r.label}:</span> {r.value}
           </p>
         ))}
+        <p className="text-sm font-medium leading-snug text-[#2d8a6e]">
+          Мы собрали отчёт по данному участку: риски, ограничения и рекомендации.
+          <br />
+          Рекомендуем ознакомиться
+        </p>
       </div>
 
       <div
@@ -153,13 +177,13 @@ export function CadastreInfoPanel({ summary, rawProperties, ctaRowRef }: Cadastr
       >
         <button
           type="button"
-          onClick={openContactModal}
+          onClick={handleCheckRisksClick}
           className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600"
         >
           Проверить риски участка
         </button>
         <p className="max-w-xl text-center text-sm leading-snug text-slate-500 sm:flex-1 sm:text-left">
-          Получите отчёт с рисками и рекомендациями перед сделкой (
+          Получите отчёт с рисками и рекомендациями мгновенно (
           <a
             href="#report-example"
             className="text-slate-600 underline decoration-slate-400 underline-offset-2 transition hover:text-geoblue"
