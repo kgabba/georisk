@@ -37,6 +37,23 @@ curl -sS "http://127.0.0.1/api/cadastre/38:06:144003:4723" | head
 
 В облаке: **security group** — входящие **TCP 80** (минимум), после SSL — **TCP 443**. Публичный IPv4 именно этой ВМ.
 
+### Прод **geo-risk.ru** и контейнеры: не путать с dev
+
+Публичный сайт (домен → nginx **:80** / **:443**) обслуживают **продовые** сервисы из [`docker-compose.yml`](docker-compose.yml): **`web`** (Next) и **`api`** (Fastify). Именно их нужно пересобирать после `git pull`, чтобы изменения попали на прод.
+
+**`web-dev`** ([`docker-compose.dev.yml`](docker-compose.dev.yml), порт **:3002**) — отдельный контейнер для проверки фронта на том же сервере; на публичный домен он **не** влияет. «Выкатить как на проде» = обновить код в клоне репозитория и выполнить, например:
+
+```bash
+cd georisk
+git fetch origin
+# Выбери ту ветку, которую реально трекаешь на этом сервере для прода (часто main или feature):
+git checkout main    # или: git checkout feature
+git pull origin main   # или: git pull origin feature
+docker compose build web api && docker compose up -d web api
+```
+
+Так ты переносишь изменения **в продовые** образы `web` / `api`; **`db`** и **`nginx`** трогать не обязательно, если не менялся compose и схема БД.
+
 ---
 
 ## Переезд на новый сервер (чеклист)
