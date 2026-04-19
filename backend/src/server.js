@@ -3,6 +3,8 @@ import Fastify from "fastify";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { Pool } from "pg";
 import { z } from "zod";
+import { clipFeatureCollectionToExtent } from "./risk-map-clip.js";
+import { geeTerrainConfigured, runNasademTerrainStats } from "./nasademTerrain.js";
 
 function nspdTlsInsecure() {
   const v = (process.env.NSPD_TLS_INSECURE || "").toLowerCase();
@@ -343,6 +345,14 @@ const riskMapRequestSchema = z.object({
   })
 });
 
+/** Либо GeoJSON Feature (как у risk-map), либо ring в порядке карты [широта, долгота]. */
+const terrainRequestSchema = z
+  .object({
+    cadastreFeature: riskMapRequestSchema.shape.cadastreFeature.optional(),
+    ring: z.array(z.tuple([z.number(), z.number()])).min(3).max(500).optional()
+  })
+  .refine((d) => Boolean(d.cadastreFeature || d.ring), { message: "Укажите cadastreFeature или ring" });
+
 const RISK_MAP_HALF_EXTENT_METERS = 4000;
 const RISK_MAP_LAYER_LIMIT = 8000;
 
@@ -350,6 +360,18 @@ function toWgs84Coord([x, y]) {
   const lon = (x / 6378137.0) * (180 / Math.PI);
   const lat = (2 * Math.atan(Math.exp(y / 6378137.0)) - Math.PI / 2) * (180 / Math.PI);
   return [lon, lat];
+}
+
+/** Внешнее кольцо участка в WGS84 как [[lon, lat], ...] для Earth Engine. */
+function exteriorRingLonLatFromCadastreGeometry(geometry) {
+  if (!geometry) return null;
+  if (geometry.type === "Polygon" && geometry.coordinates?.[0]?.length >= 3) {
+    return geometry.coordinates[0].map(([lon, lat]) => [Number(lon), Number(lat)]);
+  }
+  if (geometry.type === "MultiPolygon" && geometry.coordinates?.[0]?.[0]?.length >= 3) {
+    return geometry.coordinates[0][0].map(([lon, lat]) => [Number(lon), Number(lat)]);
+  }
+  return null;
 }
 
 function normalizeCoordsToWgs84(geometry) {
@@ -397,7 +419,10 @@ async function fetchCadastreFeature(code) {
   const feature = payload?.data?.features?.[0];
   if (!feature) return null;
 
-  const geometry = normalizeCoordsToWgs84(feature.geometry);
+  const rawGeom = feature.geometry;
+  const geometry = geometryAppearsWebMercator(rawGeom)
+    ? normalizeCoordsToWgs84(rawGeom)
+    : rawGeom;
   return { ...feature, geometry };
 }
 
@@ -900,23 +925,85 @@ fastify.post("/api/risk-map/overlays", async (request, reply) => {
     queryRiskLayer(landuseIntersectSql, geomJson)
   ]);
 
+  const extentBox = {
+    type: "Feature",
+    geometry: extentRows[0]?.geometry ?? null,
+    properties: { halfExtentMeters: RISK_MAP_HALF_EXTENT_METERS }
+  };
+
+  const clip = (fc) => clipFeatureCollectionToExtent(fc, extentBox);
+
   return reply.status(200).send({
     parcel: {
       type: "Feature",
       geometry: parcelRows[0]?.geometry ?? cadastreFeature.geometry,
       properties: cadastreFeature.properties ?? {}
     },
-    extentBox: {
-      type: "Feature",
-      geometry: extentRows[0]?.geometry ?? null,
-      properties: { halfExtentMeters: RISK_MAP_HALF_EXTENT_METERS }
-    },
-    powerLines,
-    powerBuffers,
-    waterSave,
-    waterBuffers,
-    ooptAreas,
-    landuseIntersected
+    extentBox,
+    powerLines: clip(powerLines),
+    powerBuffers: clip(powerBuffers),
+    waterSave: clip(waterSave),
+    waterBuffers: clip(waterBuffers),
+    ooptAreas: clip(ooptAreas),
+    landuseIntersected: clip(landuseIntersected)
+  });
+});
+
+fastify.post("/api/terrain/nasadem", async (request, reply) => {
+  if (!geeTerrainConfigured()) {
+    return reply.status(503).send({
+      message:
+        "Рельеф NASADEM (Google Earth Engine) не настроен: в API-контейнере задайте GEE_PROJECT_ID и путь GOOGLE_APPLICATION_CREDENTIALS к JSON сервисного аккаунта. Инструкция — README, раздел «Google Earth Engine».",
+      code: "GEE_NOT_CONFIGURED"
+    });
+  }
+
+  const parsed = terrainRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({
+      message: "Некорректное тело запроса",
+      issues: parsed.error.flatten()
+    });
+  }
+
+  let ringLatLng;
+  let ringLonLat;
+  if (parsed.data.cadastreFeature) {
+    const rawGeom = parsed.data.cadastreFeature.geometry;
+    const geom = geometryAppearsWebMercator(rawGeom) ? normalizeCoordsToWgs84(rawGeom) : rawGeom;
+    ringLonLat = exteriorRingLonLatFromCadastreGeometry(geom);
+    if (!ringLonLat) {
+      return reply.status(400).send({
+        message: "В cadastreFeature ожидается Polygon или MultiPolygon в WGS84",
+        code: "BAD_GEOMETRY"
+      });
+    }
+    ringLatLng = ringLonLat.map(([lon, lat]) => [lat, lon]);
+  } else {
+    ringLatLng = parsed.data.ring;
+    ringLonLat = parsed.data.ring.map(([lat, lng]) => [lng, lat]);
+  }
+
+  const areaM2 = await getPolygonAreaSqMFromRing(ringLatLng);
+  if (areaM2 === null) {
+    return reply.status(400).send({ message: "Не удалось вычислить площадь полигона", code: "AREA_FAIL" });
+  }
+  // Лимит 50 соток только для ручного контура на карте (by-polygon); кадастровый участок любой площади — ок.
+
+  const result = runNasademTerrainStats(ringLonLat);
+  if (!result.ok) {
+    fastify.log.error({ err: result.error, code: result.code }, "nasadem terrain");
+    return reply.status(502).send({
+      message: result.error || "Ошибка Earth Engine",
+      code: result.code || "EE_FAILED"
+    });
+  }
+
+  return reply.status(200).send({
+    maxSlopeDeg: result.maxSlopeDeg,
+    elevationM: result.elevationM,
+    source: "NASA/NASADEM_HGT/001",
+    scaleMeters: 30
   });
 });
 

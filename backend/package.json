@@ -7,6 +7,8 @@
     "start": "node src/server.js"
   },
   "dependencies": {
+    "@turf/bbox": "^7.3.4",
+    "@turf/bbox-clip": "^7.3.4",
     "fastify": "^5.1.0",
     "https-proxy-agent": "^7.0.6",
     "pg": "^8.13.1",

@@ -54,6 +54,11 @@ services:
       # Optional: HTTP proxy for NSPD only (second VPS / residential), e.g. http://user:pass@host:3128
       NSPD_HTTPS_PROXY: ${NSPD_HTTPS_PROXY:-}
       NSPD_HTTP_PROXY: ${NSPD_HTTP_PROXY:-}
+      GEE_PROJECT_ID: ${GEE_PROJECT_ID:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gee_sa.json}
+    volumes:
+      # Ключ сервисного аккаунта EE (файл в ./secrets/, не в git). См. README «Google Earth Engine».
+      - ./secrets/google-earth-engine-sa.json:/run/secrets/gee_sa.json:ro
     expose:
       - "3001"
     depends_on:

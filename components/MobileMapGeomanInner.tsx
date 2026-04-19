@@ -89,11 +89,16 @@ export default function MobileMapGeomanInner({
       drawPolygon: true,
       drawCircle: false,
       drawCircleMarker: false,
-      editMode: true,
-      dragMode: true,
+      drawText: false,
+      drawFreehand: false,
+      lassoMode: false,
+      editMode: false,
+      dragMode: false,
       cutPolygon: false,
-      removalMode: true,
+      removalMode: false,
       rotateMode: false,
+      editControls: false,
+      optionsControls: false,
       oneBlock: false
     });
 

@@ -111,7 +111,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f web-dev
 docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web-dev
 ```
 
-Открывай dev-версию на **`http://127.0.0.1:3002`**. БД остается общей и постоянной (том `pg_data` у сервиса `db`), дублировать БД не нужно.
+Открывай dev-версию на **`http://127.0.0.1:3002`** (или **`http://<IP-сервера>:3002`**, если браузер не на той же машине, где Docker). Сайт на **`http://localhost/`** (порт **80**) — это **nginx → продовый `web`**, не dev-фронт; порт **3000** на хост **не проброшен** (у `web` только `expose`), поэтому **`http://localhost:3000`** даст **connection refused** — это ожидаемо.
+
+Если работаешь через SSH с ноутбука: `ssh -L 3002:127.0.0.1:3002 user@сервер` и на ноутбуке открывай **`http://127.0.0.1:3002`**.
+
+Кэш Next для dev лежит в томе **`web_dev_next`** (`/app/.next` в контейнере), а не в каталоге на хосте — так не ломается `next dev` после `next build` на машине (ошибки вида **`Cannot find module './NNN.js'`**). Если кэш всё же испортился: останови `web-dev`, выполни `docker volume rm georisk_web_dev_next` (имя тома см. `docker volume ls | grep next`) и снова `up -d web-dev`.
 
 ---
 
@@ -121,10 +125,33 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web-dev
 |--------|------------------|------|
 | **nginx** | `nginx:1.27-alpine` | **:80** всегда; **:443** при подключении **[`docker-compose.ssl.yml`](docker-compose.ssl.yml)** (или **`COMPOSE_FILE`** в `.env`). Прокси **`/` → web:3000**, **`/api/` → api:3001**. ACME: **`/.well-known/acme-challenge/`** → том **`certbot_www`**. Конфиг: **[`infra/nginx/default.conf`](infra/nginx/default.conf)**. |
 | **web** | корневой [`Dockerfile`](Dockerfile) | Next SSR/статика. |
-| **api** | [`backend/Dockerfile`](backend/Dockerfile) | Fastify: `/health`, `/api/cadastre/:code`, POST `/api/cadastre/by-polygon`, `/api/leads`. |
+| **api** | [`backend/Dockerfile`](backend/Dockerfile) | Fastify: `/health`, `/api/cadastre/:code`, POST `/api/cadastre/by-polygon`, POST `/api/risk-map/overlays`, POST `/api/terrain/nasadem` (NASADEM через Earth Engine, см. ниже), POST `/api/leads`. |
 | **db** | `postgis/postgis:16-3.4` | PostGIS, таблицы заявок, кэш кадастра, слой **ООПТ** и т.д. |
 | **pgadmin** | `dpage/pgadmin4` | UI БД на **`127.0.0.1:5050`** (не торчит наружу по умолчанию). |
 | **certbot** | `certbot/certbot` (профиль **`certbot`**) | Ручной выпуск/renew сертификатов, тома **`certbot_www`**, **`certbot_conf`**. |
+
+---
+
+## Google Earth Engine (NASADEM: уклон и высота)
+
+Интерактивный вход Colab (`auth.authenticate_user()`) **на сервере не используется**. Вместо этого — **сервисный аккаунт** Google Cloud и JSON-ключ в контейнере.
+
+1. В [Google Cloud Console](https://console.cloud.google.com/) выбери или создай проект; в [Earth Engine Code Editor](https://code.earthengine.google.com/) привяжи проект к EE (регистрация Earth Engine для облака).
+2. **IAM → Service Accounts →** создать аккаунт → **Keys → Add key → JSON**. Положи копию как **`secrets/google-earth-engine-sa.json`** в корне репозитория (каталог **`secrets/*.json`** в **`.gitignore`**, в git не попадёт).
+3. Включи для проекта API **Google Earth Engine** (и при необходимости стандартные API для сервисного аккаунта).
+4. **IAM →** для **того же** сервисного аккаунта (`client_email` в JSON), на уровне проекта добавь роли:
+   - **`Service Usage Consumer`** (`roles/serviceusage.serviceUsageConsumer`) — иначе *serviceusage.services.use*;
+   - **`Earth Engine Resource Writer`** (`roles/earthengine.writer`) — иначе *earthengine.computations.create denied* при расчётах (`reduceRegion` / `getInfo`).
+   Распространение IAM обычно 1–3 минуты.
+5. В **`.env`** задай **`GEE_PROJECT_ID`** (= поле `project_id` в JSON). Путь к ключу в контейнере по умолчанию **`GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gee_sa.json`** — в **[`docker-compose.yml`](docker-compose.yml)** у сервиса **`api`** уже смонтировано `./secrets/google-earth-engine-sa.json` → `/run/secrets/gee_sa.json`.
+6. Пересобери и подними **`api`**: `docker compose build api && docker compose up -d api`. Python и `earthengine-api` ставятся в образ (`/opt/ee-venv`).
+
+**POST `/api/terrain/nasadem`** — тело JSON:
+
+- **`{ "cadastreFeature": { "type": "Feature", "geometry": { "type": "Polygon", "coordinates": [[[lon,lat],...]] } } }`** — как у карты рисков; или  
+- **`{ "ring": [[lat,lng], ...] }`** — то же кольцо, что для POST `/api/cadastre/by-polygon` (широта, долгота).
+
+Ответ **`200`**: `{ "maxSlopeDeg": number|null, "elevationM": number|null, "source": "NASA/NASADEM_HGT/001", "scaleMeters": 30 }`. Высота — **NASADEM в центроиде участка** (один пиксель ~30 м), максимальный уклон — **по всему полигону** в пределах участка. Если EE не настроен — **`503`** с кодом `GEE_NOT_CONFIGURED`.
 
 ---
 
@@ -135,6 +162,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web-dev
 | Переменная | Обязательно | Смысл |
 |------------|-------------|--------|
 | `POSTGRES_*` | да для Compose | БД для `db` и `api`. |
+| `GEE_PROJECT_ID` | нет | GCP project id для Earth Engine; без него POST `/api/terrain/nasadem` → 503. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | нет | Путь к JSON сервисного аккаунта **внутри контейнера** `api`. |
 | `COMPOSE_FILE` | нет | После настройки HTTPS: **`docker-compose.yml:docker-compose.ssl.yml`**, чтобы одна команда **`docker compose up`** поднимала и **443**. |
 | `NEXT_PUBLIC_API_BASE_URL` | нет | Обычно **пусто** — относительные **`/api/...`**. |
 | `GEORISK_UMAMI_SCRIPT_URL` | нет | По умолчанию **`https://cloud.umami.is/script.js`**. |

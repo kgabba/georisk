@@ -1,0 +1,2 @@
+# Earth Engine Python API (NASADEM рельеф в scripts/ee_nasadem_stats.py)
+earthengine-api>=1.0.0

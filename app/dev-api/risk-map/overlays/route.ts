@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
+import { clipFeatureCollectionToExtent } from "@/lib/risk-map-clip";
 
 export const runtime = "nodejs";
 
@@ -22,18 +23,18 @@ function getPool() {
   return pool;
 }
 
-function rowsToFeatureCollection(rows: Array<{ geometry: GeoJSON.Geometry; properties?: Record<string, unknown> }>) {
+function rowsToFeatureCollection(rows: Array<{ geometry: GeoJSON.Geometry; properties?: Record<string, unknown> }>): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: rows.map((r) => ({
-      type: "Feature",
+      type: "Feature" as const,
       geometry: r.geometry,
       properties: r.properties ?? {}
     }))
   };
 }
 
-async function queryLayer(sql: string, geomJson: string) {
+async function queryLayer(sql: string, geomJson: string): Promise<GeoJSON.FeatureCollection> {
   try {
     const { rows } = await getPool().query(sql, [geomJson, HALF_EXTENT_M, MERGE_INPUT_LIMIT]);
     return rowsToFeatureCollection(rows);
@@ -181,23 +182,27 @@ export async function POST(req: Request) {
       queryLayer(landuseIntersectSql, geomJson)
     ]);
 
+    const extentBox = {
+      type: "Feature" as const,
+      geometry: extentRows[0]?.geometry ?? null,
+      properties: { halfExtentMeters: HALF_EXTENT_M }
+    } as GeoJSON.Feature;
+
+    const clip = (fc: GeoJSON.FeatureCollection) => clipFeatureCollectionToExtent(fc, extentBox);
+
     return NextResponse.json({
       parcel: {
         type: "Feature",
         geometry: parcelRows[0]?.geometry ?? body.cadastreFeature.geometry,
         properties: body.cadastreFeature.properties ?? {}
       },
-      extentBox: {
-        type: "Feature",
-        geometry: extentRows[0]?.geometry ?? null,
-        properties: { halfExtentMeters: HALF_EXTENT_M }
-      },
-      powerLines,
-      powerBuffers,
-      waterSave,
-      waterBuffers,
-      ooptAreas,
-      landuseIntersected
+      extentBox,
+      powerLines: clip(powerLines),
+      powerBuffers: clip(powerBuffers),
+      waterSave: clip(waterSave),
+      waterBuffers: clip(waterBuffers),
+      ooptAreas: clip(ooptAreas),
+      landuseIntersected: clip(landuseIntersected)
     });
   } catch {
     return NextResponse.json({ message: "Не удалось собрать слои рисков." }, { status: 500 });

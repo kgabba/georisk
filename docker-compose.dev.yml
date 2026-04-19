@@ -11,8 +11,11 @@ services:
     volumes:
       - ./:/app
       - web_dev_node_modules:/app/node_modules
+      # Отдельный том для .next: иначе кэш на хосте (после next build) ломает next dev в контейнере (Cannot find module './NNN.js').
+      - web_dev_next:/app/.next
+    # 0.0.0.0 — иначе с другой машины / без SSH-туннеля «localhost» не дотянется до контейнера.
     ports:
-      - "127.0.0.1:3002:3000"
+      - "3002:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -21,3 +24,4 @@ services:
 
 volumes:
   web_dev_node_modules:
+  web_dev_next:
