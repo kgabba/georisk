@@ -48,6 +48,7 @@ function formatDegrees(d: number | null | undefined): string {
 
 /** Порог «нормальный уклон» для подписи под NASADEM (градусы). */
 const SLOPE_NORM_MAX_DEG = 15;
+const SLOPE_MODERATE_MIN_DEG = 8;
 
 /** На сколько уровней ближе показывать карту (как два нажатия «+»), не выше maxZoom карты слоёв. */
 const RISK_MAP_EXTRA_ZOOM = 2;
@@ -281,15 +282,22 @@ export default function RiskMapPage() {
                   <span className="text-slate-400">Максимальный уклон на участке: </span>
                   <span className="text-slate-100">{formatDegrees(terrain.maxSlopeDeg)}</span>
                   {terrain.maxSlopeDeg != null && Number.isFinite(terrain.maxSlopeDeg) ? (
-                    terrain.maxSlopeDeg <= SLOPE_NORM_MAX_DEG ? (
-                      <span className="text-slate-500"> (в пределах нормы)</span>
-                    ) : (
+                    terrain.maxSlopeDeg > SLOPE_NORM_MAX_DEG ? (
                       <>
                         {" "}
                         <span className="font-medium text-red-400">
                           Критический уклон, возможно развитие оползней.
                         </span>
                       </>
+                    ) : terrain.maxSlopeDeg > SLOPE_MODERATE_MIN_DEG ? (
+                      <>
+                        {" "}
+                        <span className="font-medium text-orange-300">
+                          Умеренный риск: требуется повышенное внимание при строительстве.
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500"> (в пределах нормы)</span>
                     )
                   ) : null}
                 </p>
@@ -301,9 +309,9 @@ export default function RiskMapPage() {
       <div className="relative mx-auto mb-6 h-[calc(100vh-150px)] max-w-7xl overflow-hidden rounded-xl border border-slate-700">
         <div ref={containerRef} className="h-full w-full" />
         <aside className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[min(22rem,calc(100%-1.5rem))]">
-          <div className="pointer-events-auto rounded-lg border border-slate-600 bg-slate-950/92 px-3 py-2.5 shadow-lg backdrop-blur-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Легенда</p>
-            <ul className="mt-2 space-y-2 text-xs leading-snug text-slate-100">
+          <div className="pointer-events-auto rounded-lg border border-white/45 bg-black/92 px-3 py-2.5 shadow-2xl ring-2 ring-white/20 backdrop-blur-md">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-white">Легенда</p>
+            <ul className="mt-2 space-y-2 text-xs leading-snug text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.9)]">
               <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-blue-700"
@@ -328,11 +336,11 @@ export default function RiskMapPage() {
                 />
                 <span>ООПТ</span>
               </li>
-              <li className="flex gap-2 border-t border-slate-700 pt-2 text-slate-300">
+              <li className="flex gap-2 border-t border-white/35 pt-2">
                 <span className="mt-0.5 h-0.5 w-6 shrink-0 self-center rounded-full bg-orange-500" aria-hidden />
                 <span>Линии ЛЭП</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-cyan-600"
                   style={{ backgroundColor: "rgba(103, 232, 249, 0.25)" }}
@@ -340,7 +348,7 @@ export default function RiskMapPage() {
                 />
                 <span>Водные объекты (охрана)</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-yellow-600"
                   style={{ backgroundColor: "rgba(253, 224, 71, 0.28)" }}
@@ -348,11 +356,11 @@ export default function RiskMapPage() {
                 />
                 <span>Землепользование (средний / высокий риск)</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span className="mt-0.5 h-3 w-6 shrink-0 rounded-sm border-2 border-red-500 bg-transparent" aria-hidden />
                 <span>Кадастровый участок</span>
               </li>
-              <li className="flex gap-2 text-slate-400">
+              <li className="flex gap-2 text-white">
                 <span className="mt-0.5 h-3 w-6 shrink-0 rounded-sm border border-white/50 bg-transparent" aria-hidden />
                 <span>Рамка экстента 8×8 км</span>
               </li>
