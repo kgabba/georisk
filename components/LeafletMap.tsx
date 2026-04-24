@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L, { Map as LeafletMapInstance } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
@@ -10,6 +10,7 @@ import type { CadastreMapCandidate } from "@/lib/cadastre";
 interface LeafletMapProps {
   onPolygonDrawn: (coords: [number, number][]) => void;
   selectedGeoFeature?: GeoJSON.Feature | null;
+  focusCoords?: [number, number] | null;
   /** Несколько ЗУ после поиска по полигону — клик по контуру выбирает участок. */
   cadastreCandidates?: CadastreMapCandidate[] | null;
   onCadastreCandidateClick?: (code: string) => void;
@@ -42,6 +43,7 @@ type EditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
 
 export function LeafletMap({
   onPolygonDrawn,
+  focusCoords = null,
   selectedGeoFeature = null,
   cadastreCandidates = null,
   onCadastreCandidateClick
@@ -50,23 +52,46 @@ export function LeafletMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const selectedLayerRef = useRef<L.GeoJSON | null>(null);
   const candidatesLayerRef = useRef<L.FeatureGroup | null>(null);
+  const osmLayerRef = useRef<L.TileLayer | null>(null);
+  const satelliteLayerRef = useRef<L.TileLayer | null>(null);
+  const [baseLayer, setBaseLayer] = useState<"osm" | "satellite">("osm");
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const drawLocal = (L as unknown as { drawLocal?: Record<string, unknown> }).drawLocal;
+    if (drawLocal && typeof drawLocal === "object") {
+      const draw = (drawLocal.draw ?? {}) as Record<string, unknown>;
+      const toolbar = (draw.toolbar ?? {}) as Record<string, unknown>;
+      const buttons = (toolbar.buttons ?? {}) as Record<string, unknown>;
+      buttons.polygon = "Выделить участок";
+      toolbar.buttons = buttons;
+      draw.toolbar = toolbar;
+      drawLocal.draw = draw;
+    }
+
     const map = L.map(containerRef.current, {
       zoomControl: true,
-      attributionControl: true
+      attributionControl: false
     });
 
     mapRef.current = map;
     map.setView([55.7558, 37.6173], 5);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    });
+    const satelliteLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri"
+      }
+    );
+    osmLayer.addTo(map);
+    osmLayerRef.current = osmLayer;
+    satelliteLayerRef.current = satelliteLayer;
 
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
@@ -126,8 +151,24 @@ export function LeafletMap({
       mapRef.current = null;
       selectedLayerRef.current = null;
       candidatesLayerRef.current = null;
+      osmLayerRef.current = null;
+      satelliteLayerRef.current = null;
     };
   }, [onPolygonDrawn]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const osm = osmLayerRef.current;
+    const satellite = satelliteLayerRef.current;
+    if (!map || !osm || !satellite) return;
+    if (baseLayer === "satellite") {
+      if (map.hasLayer(osm)) map.removeLayer(osm);
+      if (!map.hasLayer(satellite)) satellite.addTo(map);
+    } else {
+      if (map.hasLayer(satellite)) map.removeLayer(satellite);
+      if (!map.hasLayer(osm)) osm.addTo(map);
+    }
+  }, [baseLayer]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -205,9 +246,51 @@ export function LeafletMap({
     }
   }, [cadastreCandidates, onCadastreCandidateClick]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusCoords) return;
+    map.setView([focusCoords[0], focusCoords[1]], 12);
+  }, [focusCoords]);
+
+  function startPolygonDraw() {
+    const map = mapRef.current;
+    if (!map) return;
+    const DrawCtor = (L as unknown as { Draw?: { Polygon?: new (m: L.Map, opts: Record<string, unknown>) => { enable: () => void } } })
+      .Draw?.Polygon;
+    if (!DrawCtor) return;
+    const drawer = new DrawCtor(map, {
+      allowIntersection: false,
+      showArea: true,
+      shapeOptions: { color: "#2563eb", weight: 2 }
+    });
+    drawer.enable();
+  }
+
   // Увеличили карту пропорционально расширенным блокам
   return (
-    <div className="h-[380px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-slate-100 shadow-soft sm:h-[450px]">
+    <div className="desktop-map-root relative h-[380px] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-slate-100 shadow-soft sm:h-[450px]">
+      <button
+        type="button"
+        onClick={() => setBaseLayer((prev) => (prev === "osm" ? "satellite" : "osm"))}
+        className="absolute left-[52px] top-3 z-[700] inline-flex h-8 min-w-[78px] items-center justify-center rounded-md border border-slate-300 bg-white/95 px-2 text-xs font-semibold text-slate-700 shadow hover:bg-slate-50"
+      >
+        {baseLayer === "osm" ? "Спутник" : "OSM"}
+      </button>
+      <button
+        type="button"
+        onClick={startPolygonDraw}
+        className="absolute right-[54px] top-[10px] z-[700] inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white/95 px-2.5 text-xs font-semibold text-slate-700 shadow hover:bg-slate-50"
+      >
+        Выделить полигон
+      </button>
+      <style jsx global>{`
+        .desktop-map-root .leaflet-draw .leaflet-draw-section:first-child {
+          display: none !important;
+        }
+        .desktop-map-root .leaflet-top.leaflet-right {
+          margin-top: -4px !important;
+        }
+      `}</style>
       <div ref={containerRef} className="h-full w-full" />
     </div>
   );

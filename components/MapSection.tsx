@@ -39,6 +39,10 @@ export function MapSection({
 }: MapSectionProps) {
   const [polygon, setPolygon] = useState<[number, number][]>([]);
   const [drawFirstHint, setDrawFirstHint] = useState<string | null>(null);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false);
+  const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
+  const [focusCoords, setFocusCoords] = useState<[number, number] | null>(null);
 
   const handlePolygonDrawn = useCallback((coords: [number, number][]) => {
     setPolygon(coords);
@@ -62,6 +66,37 @@ export function MapSection({
     }
   }
 
+  async function handlePlaceSearch() {
+    const q = placeQuery.trim();
+    if (q.length < 2) return;
+    setPlaceSearchLoading(true);
+    setPlaceSearchError(null);
+    try {
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.set("q", q);
+      url.searchParams.set("format", "jsonv2");
+      url.searchParams.set("limit", "1");
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error("Ошибка поиска");
+      const rows = (await res.json()) as Array<{ lat: string; lon: string }>;
+      if (!rows.length) {
+        setPlaceSearchError("Ничего не найдено");
+        return;
+      }
+      const lat = Number(rows[0].lat);
+      const lon = Number(rows[0].lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        setPlaceSearchError("Некорректные координаты");
+        return;
+      }
+      setFocusCoords([lat, lon]);
+    } catch {
+      setPlaceSearchError("Не удалось выполнить поиск");
+    } finally {
+      setPlaceSearchLoading(false);
+    }
+  }
+
   return (
     <section
       id="desktop-map-section"
@@ -82,6 +117,7 @@ export function MapSection({
           <div className="-mt-[14px]">
             <DynamicLeafletMap
               onPolygonDrawn={handlePolygonDrawn}
+              focusCoords={focusCoords}
               selectedGeoFeature={selectedGeoFeature}
               cadastreCandidates={cadastreCandidates}
               onCadastreCandidateClick={onCadastreCandidateSelect}
@@ -93,6 +129,30 @@ export function MapSection({
               {polygonPickHint ? <p className="font-medium text-amber-800">{polygonPickHint}</p> : null}
               {drawFirstHint ? <p className="font-medium text-amber-900">{drawFirstHint}</p> : null}
               {polygonSearchError ? <p className="text-red-600">{polygonSearchError}</p> : null}
+              {placeSearchError ? <p className="text-red-600">{placeSearchError}</p> : null}
+              <div className="flex w-full flex-col gap-2 pt-0.5 sm:flex-row">
+                <input
+                  type="text"
+                  value={placeQuery}
+                  onChange={(e) => setPlaceQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handlePlaceSearch();
+                    }
+                  }}
+                  placeholder="Поиск населенного пункта"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-geoblue"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handlePlaceSearch()}
+                  disabled={placeSearchLoading}
+                  className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {placeSearchLoading ? "Ищем…" : "Найти место"}
+                </button>
+              </div>
             </div>
             <button
               type="button"

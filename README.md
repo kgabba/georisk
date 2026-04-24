@@ -134,6 +134,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web-dev
 
 Кэш Next для dev лежит в томе **`web_dev_next`** (`/app/.next` в контейнере), а не в каталоге на хосте — так не ломается `next dev` после `next build` на машине (ошибки вида **`Cannot find module './NNN.js'`**). Если кэш всё же испортился: останови `web-dev`, выполни `docker volume rm georisk_web_dev_next` (имя тома см. `docker volume ls | grep next`) и снова `up -d web-dev`.
 
+### Временная блокировка кнопки «Скачать отчет»
+
+На странице [`app/risk-map/page.tsx`](app/risk-map/page.tsx) есть флаг:
+
+`const REPORT_DOWNLOAD_BUTTON_DISABLED = true;`
+
+При `true` кнопка «Скачать отчет» остается в UI, но некликабельна (логика построения отчета и polling статуса остаются в коде).
+Чтобы вернуть кликабельность, поменяй флаг на `false`.
+
 ---
 
 ## Сервисы Docker Compose
@@ -377,3 +386,13 @@ npm run lint
 ## Дальнейшая гео-логика
 
 В БД уже есть геоданные заявок и слои вроде **ООПТ**; можно наращивать **`ST_Intersects`**, отчёты, отдельные воркеры.
+
+---
+
+## YooKassa: поля анкеты
+
+Для подключения платежей на сайт в анкете YooKassa можно использовать:
+
+- Адрес сайта: **`https://geo-risk.ru`**
+- Ссылка на страницу с реквизитами: **`https://geo-risk.ru/requisites`**
+- Ссылка на условия оказания услуг (оферта): **`https://geo-risk.ru/offer`**

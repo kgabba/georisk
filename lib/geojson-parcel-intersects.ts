@@ -210,16 +210,8 @@ function polygonPartsIntersects(a: PolyPart[], b: PolyPart[]): boolean {
       const eb = ringEdges(pb.outer);
       if (edgesCrossAny(ea, eb)) return true;
 
-      for (const h of pa.holes) {
-        for (const p of pb.outer) {
-          if (pointInRingOrOnEdge(p[0], p[1], h)) return true;
-        }
-      }
-      for (const h of pb.holes) {
-        for (const p of pa.outer) {
-          if (pointInRingOrOnEdge(p[0], p[1], h)) return true;
-        }
-      }
+      // Попадание точки во "внутреннее отверстие" (hole) не является пересечением.
+      // Это означает как раз отсутствие покрытия в этой области.
     }
   }
   return false;
