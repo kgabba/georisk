@@ -239,14 +239,9 @@ export default function RiskMapPage() {
   useEffect(() => {
     if (!payload?.cadastreFeature) return;
     let cancelled = false;
-    const params = new URLSearchParams(window.location.search);
-    const inviteToken = params.get("inviteToken");
 
     const run = async () => {
       try {
-        if (inviteToken) {
-          await fetch(`/api/access/activate/link?token=${encodeURIComponent(inviteToken)}`);
-        }
         const res = await fetch("/api/access/status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -259,7 +254,7 @@ export default function RiskMapPage() {
         if (cancelled) return;
         if (!res.ok || !body?.allowed) {
           setAccessAllowed(false);
-          setError("Доступ к карте рисков требует оплату или код доступа.");
+          setError("Доступ к карте рисков требует оплату.");
           return;
         }
         setAccessAllowed(true);

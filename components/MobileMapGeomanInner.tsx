@@ -257,7 +257,7 @@ export default function MobileMapGeomanInner({
       <button
         type="button"
         onClick={startPolygonDraw}
-        className="absolute right-[48px] top-[10px] z-[700] inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold text-slate-700 shadow hover:bg-slate-50"
+        className="absolute right-2 top-[10px] z-[700] inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white/95 px-2 text-[11px] font-semibold text-slate-700 shadow hover:bg-slate-50"
       >
         Выделить полигон
       </button>

@@ -1,6 +1,6 @@
 import https from "node:https";
 import { spawn } from "node:child_process";
-import { randomUUID, randomBytes, createHash, createHmac } from "node:crypto";
+import { randomUUID, createHash, createHmac } from "node:crypto";
 import { access } from "node:fs/promises";
 import { constants as fsConstants, createReadStream } from "node:fs";
 import Fastify from "fastify";
@@ -382,7 +382,8 @@ const reportStatusParamsSchema = z.object({
 const paymentCreateSchema = z.object({
   cadastreFeature: riskMapRequestSchema.shape.cadastreFeature,
   cadastreNumber: z.string().trim().min(1).max(128).nullable().optional(),
-  tariffCode: z.enum(["single_280"])
+  tariffCode: z.enum(["single_280"]),
+  promoCode: z.string().trim().min(3).max(64).optional()
 });
 
 const accessStatusSchema = z.object({
@@ -390,17 +391,8 @@ const accessStatusSchema = z.object({
   cadastreNumber: z.string().trim().min(1).max(128).nullable().optional()
 });
 
-const activateCodeSchema = z.object({
-  code: z.string().trim().min(4).max(128),
-  cadastreFeature: riskMapRequestSchema.shape.cadastreFeature.optional(),
-  cadastreNumber: z.string().trim().min(1).max(128).nullable().optional()
-});
-
-const createInviteSchema = z.object({
-  cadastreFeature: riskMapRequestSchema.shape.cadastreFeature.optional(),
-  cadastreNumber: z.string().trim().min(1).max(128).nullable().optional(),
-  ttlHours: z.number().int().min(1).max(24 * 365).optional(),
-  usesLimit: z.number().int().min(1).max(1000).optional()
+const promoApplySchema = z.object({
+  code: z.string().trim().min(3).max(64)
 });
 
 const RISK_MAP_HALF_EXTENT_METERS = 4000;
@@ -408,13 +400,13 @@ const RISK_MAP_LAYER_LIMIT = 8000;
 const REPORT_OUTPUT_DIR = process.env.REPORT_OUTPUT_DIR?.trim() || "/app/report-output";
 const REPORT_PIPELINE_VERSION = "2026-04-22-satmap-v5";
 const REPORT_DISABLE_CACHE = (process.env.REPORT_DISABLE_CACHE ?? "").trim().toLowerCase() === "true";
-const ROBOKASSA_MERCHANT_LOGIN = (process.env.ROBOKASSA_MERCHANT_LOGIN ?? "").trim();
-const ROBOKASSA_PASS1 = (process.env.ROBOKASSA_PASS1 ?? "").trim();
-const ROBOKASSA_PASS2 = (process.env.ROBOKASSA_PASS2 ?? "").trim();
-const ROBOKASSA_TEST_MODE = (process.env.ROBOKASSA_TEST_MODE ?? "").trim().toLowerCase() === "true";
+const BASE_SINGLE_TARIFF_RUB = 280.0;
+const YOOKASSA_SHOP_ID = (process.env.YOOKASSA_SHOP_ID ?? "").trim();
+const YOOKASSA_SECRET_KEY = (process.env.YOOKASSA_SECRET_KEY ?? "").trim();
+const YOOKASSA_RETURN_URL = (process.env.YOOKASSA_RETURN_URL ?? "").trim();
+const YOOKASSA_WEBHOOK_ENABLED = (process.env.YOOKASSA_WEBHOOK_ENABLED ?? "true").trim().toLowerCase() !== "false";
+const PAYMENT_DEV_MOCK = (process.env.PAYMENT_DEV_MOCK ?? "").trim().toLowerCase() === "true";
 const ACCESS_GRANT_DAYS = Number(process.env.ACCESS_GRANT_DAYS ?? 30);
-const ACCESS_ADMIN_SECRET = (process.env.ACCESS_ADMIN_SECRET ?? "").trim();
-const ACCESS_MASTER_CODE = (process.env.ACCESS_MASTER_CODE ?? "").trim();
 const GUEST_COOKIE = "guest_sid";
 const GUEST_SESSION_TTL_HOURS = Number(process.env.GUEST_SESSION_TTL_HOURS ?? 10);
 const SESSION_SECRET = (process.env.SESSION_SECRET ?? process.env.POSTGRES_PASSWORD ?? "").trim();
@@ -585,6 +577,56 @@ function baseUrlFromRequest(request) {
   return `${proto}://${host}`;
 }
 
+function yookassaAuthHeader() {
+  const basic = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64");
+  return `Basic ${basic}`;
+}
+
+function yookassaRequest({ method, path, body, idempotenceKey }) {
+  const payload = body ? JSON.stringify(body) : "";
+  const headers = {
+    Accept: "application/json",
+    Authorization: yookassaAuthHeader(),
+    "Content-Type": "application/json"
+  };
+  if (idempotenceKey) headers["Idempotence-Key"] = idempotenceKey;
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "api.yookassa.ru",
+        port: 443,
+        path,
+        method,
+        headers
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
+          let json = null;
+          if (raw) {
+            try {
+              json = JSON.parse(raw);
+            } catch {
+              json = null;
+            }
+          }
+          resolve({
+            ok: (res.statusCode ?? 500) >= 200 && (res.statusCode ?? 500) < 300,
+            status: res.statusCode ?? 500,
+            data: json
+          });
+        });
+      }
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
 async function hasActiveGrant(guestSid, cadastreNumber, featureHash) {
   if (!guestSid) return false;
   const { rows } = await pool.query(
@@ -621,6 +663,39 @@ async function logPaymentEvent(intentId, eventType, payload = {}) {
     `,
     [randomUUID(), intentId, eventType, JSON.stringify(payload ?? {})]
   );
+}
+
+async function findPromoByCode(inputCode) {
+  const normalizedCode = String(inputCode ?? "").trim().toLowerCase();
+  const { rows } = await pool.query(
+    `
+      SELECT promo_id, price_rub, uses_limit, uses_count, is_active
+      FROM promo_codes
+      WHERE LOWER(code_plain) = $1
+      LIMIT 1
+    `,
+    [normalizedCode]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function consumePromoByCode(inputCode) {
+  const normalizedCode = String(inputCode ?? "").trim().toLowerCase();
+  const { rows } = await pool.query(
+    `
+      UPDATE promo_codes
+      SET uses_count = uses_count + 1,
+          updated_at = NOW()
+      WHERE LOWER(code_plain) = $1
+        AND is_active = true
+        AND uses_count < uses_limit
+      RETURNING promo_id, price_rub, uses_limit, uses_count
+    `,
+    [normalizedCode]
+  );
+  if (!rows.length) return null;
+  return rows[0];
 }
 
 async function fileExists(path) {
@@ -895,6 +970,7 @@ async function waitForPoolReady(maxAttempts = 40, delayMs = 750) {
 
 async function ensureSchema() {
   await pool.query("CREATE EXTENSION IF NOT EXISTS postgis");
+  await pool.query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lead_submissions (
       id BIGSERIAL PRIMARY KEY,
@@ -1009,21 +1085,49 @@ async function ensureSchema() {
   );
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS access_invites (
-      invite_id TEXT PRIMARY KEY,
-      cadastre_number TEXT NULL,
-      feature_hash TEXT NULL,
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      promo_id TEXT PRIMARY KEY,
+      code_plain TEXT UNIQUE,
       code_hash TEXT UNIQUE,
-      token_hash TEXT UNIQUE,
-      uses_limit INT NOT NULL DEFAULT 1,
-      uses_count INT NOT NULL DEFAULT 0,
-      expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      price_rub NUMERIC(10,2) NOT NULL CHECK (price_rub >= 0),
+      uses_limit INT NOT NULL CHECK (uses_limit >= 0),
+      uses_count INT NOT NULL DEFAULT 0 CHECK (uses_count >= 0),
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query(
-    "CREATE INDEX IF NOT EXISTS idx_access_invites_expires ON access_invites (expires_at)"
-  );
+  await pool.query(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS code_plain TEXT`);
+  await pool.query(`ALTER TABLE promo_codes ALTER COLUMN code_hash DROP NOT NULL`);
+  await pool.query(`
+    DO $$
+    DECLARE
+      c RECORD;
+    BEGIN
+      FOR c IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'promo_codes'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%uses_limit%'
+      LOOP
+        EXECUTE format('ALTER TABLE promo_codes DROP CONSTRAINT %I', c.conname);
+      END LOOP;
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'promo_codes'::regclass
+          AND conname = 'chk_promo_codes_uses_limit_nonnegative'
+      ) THEN
+        ALTER TABLE promo_codes
+          ADD CONSTRAINT chk_promo_codes_uses_limit_nonnegative CHECK (uses_limit >= 0);
+      END IF;
+    END
+    $$;
+  `);
+  await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS uq_promo_codes_code_plain ON promo_codes (LOWER(code_plain))");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_promo_codes_active ON promo_codes (is_active)");
+  await pool.query("DROP TABLE IF EXISTS access_invites");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS guest_sessions (
@@ -1433,17 +1537,50 @@ fastify.post("/api/access/status", async (request, reply) => {
   return reply.status(200).send({ allowed });
 });
 
-fastify.post("/api/payments/robokassa/create", async (request, reply) => {
+fastify.post("/api/promo/apply", async (request, reply) => {
+  const parsed = promoApplySchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
+  }
+  const row = await findPromoByCode(parsed.data.code);
+  if (!row || !row.is_active || row.uses_count >= row.uses_limit) {
+    return reply.status(404).send({ message: "Промокод недействителен" });
+  }
+  const priceRub = Number(row.price_rub);
+  const usesLeft = Math.max(0, Number(row.uses_limit) - Number(row.uses_count));
+  return reply.status(200).send({
+    ok: true,
+    priceRub,
+    isFree: priceRub === 0,
+    usesLeft
+  });
+});
+
+fastify.post("/api/payments/yookassa/create", async (request, reply) => {
   const parsed = paymentCreateSchema.safeParse(request.body);
   if (!parsed.success) {
     return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
   }
 
   const guestSid = await ensureGuestSid(request, reply);
-  const amount = 280.0;
+  let amount = BASE_SINGLE_TARIFF_RUB;
   const intentId = randomUUID();
   const cadastreNumber = parsed.data.cadastreNumber ?? null;
   const featureHash = featureHashForAccess(parsed.data.cadastreFeature);
+  const promoCode = parsed.data.promoCode?.trim() || null;
+  let promoMeta = null;
+
+  if (promoCode) {
+    const consumed = await consumePromoByCode(promoCode);
+    if (!consumed) {
+      return reply.status(400).send({ message: "Промокод недействителен или закончился лимит использований" });
+    }
+    amount = Number(consumed.price_rub);
+    promoMeta = {
+      promoId: consumed.promo_id,
+      usesLeft: Math.max(0, Number(consumed.uses_limit) - Number(consumed.uses_count))
+    };
+  }
 
   await pool.query(
     `
@@ -1457,11 +1594,34 @@ fastify.post("/api/payments/robokassa/create", async (request, reply) => {
     cadastreNumber,
     featureHash,
     tariffCode: parsed.data.tariffCode,
-    amountRub: amount
+    amountRub: amount,
+    promoCodeApplied: Boolean(promoCode),
+    promoMeta
   });
 
+  if (amount === 0) {
+    await pool.query(`UPDATE payment_intents SET status = 'paid', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+    await createGrant({
+      guestSid,
+      cadastreNumber,
+      featureHash,
+      source: "payment"
+    });
+    await logPaymentEvent(intentId, "paid_by_promo", { promoMeta });
+    return reply.status(200).send({
+      intentId,
+      mode: "free-promo",
+      paymentUrl: "/risk-map"
+    });
+  }
+
   const baseUrl = baseUrlFromRequest(request);
-  if (!ROBOKASSA_MERCHANT_LOGIN || !ROBOKASSA_PASS1) {
+  if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
+    if (!PAYMENT_DEV_MOCK) {
+      await pool.query(`UPDATE payment_intents SET status = 'failed', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+      await logPaymentEvent(intentId, "provider_not_configured", { provider: "yookassa" });
+      return reply.status(503).send({ message: "Платежный провайдер не настроен" });
+    }
     return reply.status(200).send({
       intentId,
       paymentUrl: `${baseUrl}/api/payments/dev/success?intentId=${encodeURIComponent(intentId)}`,
@@ -1469,28 +1629,55 @@ fastify.post("/api/payments/robokassa/create", async (request, reply) => {
     });
   }
 
-  const outSum = amount.toFixed(2);
-  const signature = createHash("md5")
-    .update(`${ROBOKASSA_MERCHANT_LOGIN}:${outSum}:${intentId}:${ROBOKASSA_PASS1}`)
-    .digest("hex");
-
-  const params = new URLSearchParams({
-    MerchantLogin: ROBOKASSA_MERCHANT_LOGIN,
-    OutSum: outSum,
-    InvId: intentId,
-    Description: `GeoRisk report ${cadastreNumber ?? ""}`.trim(),
-    SignatureValue: signature,
-    IsTest: ROBOKASSA_TEST_MODE ? "1" : "0"
+  const returnUrl = YOOKASSA_RETURN_URL || `${baseUrl}/api/payments/yookassa/return`;
+  const idempotenceKey = randomUUID();
+  const yookassaPayload = {
+    amount: { value: amount.toFixed(2), currency: "RUB" },
+    capture: true,
+    confirmation: { type: "redirect", return_url: returnUrl },
+    description: `GeoRisk access ${cadastreNumber ?? ""}`.trim(),
+    metadata: {
+      intent_id: intentId,
+      cadastre_number: cadastreNumber ?? "",
+      feature_hash: featureHash,
+      guest_sid: guestSid,
+      promo_id: promoMeta?.promoId ?? ""
+    }
+  };
+  const yk = await yookassaRequest({
+    method: "POST",
+    path: "/v3/payments",
+    body: yookassaPayload,
+    idempotenceKey
+  });
+  if (!yk.ok || !yk.data?.id || !yk.data?.confirmation?.confirmation_url) {
+    await pool.query(`UPDATE payment_intents SET status = 'failed', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+    await logPaymentEvent(intentId, "create_failed", { status: yk.status, payload: yk.data ?? null });
+    return reply.status(502).send({ message: "Не удалось создать платеж в YooKassa" });
+  }
+  await pool.query(
+    `
+      UPDATE payment_intents
+      SET provider_payment_id = $2, updated_at = NOW()
+      WHERE intent_id = $1
+    `,
+    [intentId, yk.data.id]
+  );
+  await logPaymentEvent(intentId, "provider_created", {
+    provider: "yookassa",
+    providerPaymentId: yk.data.id,
+    status: yk.data.status ?? null
   });
 
   return reply.status(200).send({
     intentId,
-    paymentUrl: `https://auth.robokassa.ru/Merchant/Index.aspx?${params.toString()}`,
-    mode: "robokassa"
+    paymentUrl: yk.data.confirmation.confirmation_url,
+    mode: "yookassa"
   });
 });
 
 fastify.get("/api/payments/dev/success", async (request, reply) => {
+  if (!PAYMENT_DEV_MOCK) return reply.status(404).send({ message: "not found" });
   const intentId = String(request.query?.intentId ?? "").trim();
   if (!intentId) return reply.status(400).send({ message: "intentId обязателен" });
   const guestSid = await ensureGuestSid(request, reply);
@@ -1516,172 +1703,73 @@ fastify.get("/api/payments/dev/success", async (request, reply) => {
   return reply.redirect("/risk-map");
 });
 
-fastify.post("/api/payments/robokassa/result", async (request, reply) => {
-  const outSum = String(request.body?.OutSum ?? "").trim();
-  const invId = String(request.body?.InvId ?? "").trim();
-  const signatureValue = String(request.body?.SignatureValue ?? "").trim().toLowerCase();
-  if (!outSum || !invId || !signatureValue || !ROBOKASSA_PASS2) return reply.status(400).send("bad request");
-
-  const expected = createHash("md5").update(`${outSum}:${invId}:${ROBOKASSA_PASS2}`).digest("hex");
-  if (expected.toLowerCase() !== signatureValue) return reply.status(403).send("bad sign");
-
-  const { rows } = await pool.query(
-    `
-      UPDATE payment_intents
-      SET status = 'paid', provider_payment_id = $2, updated_at = NOW()
-      WHERE intent_id = $1
-      RETURNING guest_sid, cadastre_number, feature_hash
-    `,
-    [invId, invId]
-  );
-  if (rows.length) {
-    await logPaymentEvent(invId, "paid_callback", { outSum });
-    await createGrant({
-      guestSid: rows[0].guest_sid,
-      cadastreNumber: rows[0].cadastre_number,
-      featureHash: rows[0].feature_hash,
-      source: "payment"
-    });
-  }
-  return reply.type("text/plain").send(`OK${invId}`);
-});
-
-fastify.get("/api/payments/robokassa/success", async (request, reply) => {
-  const invId = String(request.query?.InvId ?? "").trim();
-  if (!invId) return reply.redirect("/risk-map");
-
-  const guestSid = await ensureGuestSid(request, reply);
-  const { rows } = await pool.query(
-    `
-      SELECT cadastre_number, feature_hash, status
-      FROM payment_intents
-      WHERE intent_id = $1
-      LIMIT 1
-    `,
-    [invId]
-  );
-  if (rows.length && rows[0].status === "paid") {
-    await createGrant({
-      guestSid,
-      cadastreNumber: rows[0].cadastre_number,
-      featureHash: rows[0].feature_hash,
-      source: "payment"
-    });
-  }
-  return reply.redirect("/risk-map");
-});
-
-fastify.post("/api/access/invite/create", async (request, reply) => {
-  if (!ACCESS_ADMIN_SECRET || request.headers["x-admin-secret"] !== ACCESS_ADMIN_SECRET) {
-    return reply.status(403).send({ message: "forbidden" });
-  }
-  const parsed = createInviteSchema.safeParse(request.body);
-  if (!parsed.success) {
-    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
-  }
-
-  const featureHash = parsed.data.cadastreFeature ? featureHashForAccess(parsed.data.cadastreFeature) : null;
-  const cadastreNumber = parsed.data.cadastreNumber ?? null;
-  const ttlHours = parsed.data.ttlHours ?? 168;
-  const usesLimit = parsed.data.usesLimit ?? 1;
-  const inviteId = randomUUID();
-  const code = randomBytes(6).toString("hex");
-  const token = randomUUID().replaceAll("-", "") + randomUUID().replaceAll("-", "");
-
-  await pool.query(
-    `
-      INSERT INTO access_invites (
-        invite_id, cadastre_number, feature_hash, code_hash, token_hash, uses_limit, expires_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW() + ($7 || ' hours')::interval)
-    `,
-    [inviteId, cadastreNumber, featureHash, hashSecret(code), hashSecret(token), usesLimit, String(ttlHours)]
-  );
-
-  const baseUrl = baseUrlFromRequest(request);
-  const cadNumQuery = cadastreNumber ? `&cadastreNumber=${encodeURIComponent(cadastreNumber)}` : "";
-  return reply.status(200).send({
-    inviteId,
-    code,
-    link: `${baseUrl}/risk-map?inviteToken=${encodeURIComponent(token)}${cadNumQuery}`
+fastify.post("/api/payments/yookassa/webhook", async (request, reply) => {
+  if (!YOOKASSA_WEBHOOK_ENABLED) return reply.status(200).send({ ok: true, skipped: true });
+  const event = String(request.body?.event ?? "").trim();
+  const providerPaymentId = String(request.body?.object?.id ?? "").trim();
+  if (!event || !providerPaymentId) return reply.status(400).send({ message: "bad webhook payload" });
+  const yk = await yookassaRequest({
+    method: "GET",
+    path: `/v3/payments/${encodeURIComponent(providerPaymentId)}`
   });
-});
+  if (!yk.ok || !yk.data?.id) return reply.status(502).send({ message: "provider verify failed" });
 
-fastify.post("/api/access/activate/code", async (request, reply) => {
-  const parsed = activateCodeSchema.safeParse(request.body);
-  if (!parsed.success) {
-    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
+  const metaIntentId = String(yk.data?.metadata?.intent_id ?? "").trim();
+  let intentId = metaIntentId;
+  if (!intentId) {
+    const byProvider = await pool.query(
+      `SELECT intent_id FROM payment_intents WHERE provider_payment_id = $1 LIMIT 1`,
+      [providerPaymentId]
+    );
+    intentId = byProvider.rows[0]?.intent_id ?? "";
   }
-  const guestSid = await ensureGuestSid(request, reply);
-  const inputCode = parsed.data.code.trim();
-  if (ACCESS_MASTER_CODE && inputCode === ACCESS_MASTER_CODE) {
-    if (!parsed.data.cadastreFeature) {
-      return reply.status(400).send({ message: "Для мастер-кода нужен cadastreFeature" });
+  if (!intentId) return reply.status(200).send({ ok: true, skipped: "intent_not_found" });
+
+  const current = await pool.query(
+    `SELECT intent_id, guest_sid, cadastre_number, feature_hash, status FROM payment_intents WHERE intent_id = $1 LIMIT 1`,
+    [intentId]
+  );
+  if (!current.rows.length) return reply.status(200).send({ ok: true, skipped: "intent_missing" });
+
+  const providerStatus = String(yk.data.status ?? "").trim();
+  if (providerStatus === "succeeded") {
+    await pool.query(
+      `
+        UPDATE payment_intents
+        SET status = 'paid', provider_payment_id = $2, updated_at = NOW()
+        WHERE intent_id = $1
+      `,
+      [intentId, providerPaymentId]
+    );
+    if (current.rows[0].status !== "paid") {
+      await createGrant({
+        guestSid: current.rows[0].guest_sid,
+        cadastreNumber: current.rows[0].cadastre_number,
+        featureHash: current.rows[0].feature_hash,
+        source: "payment"
+      });
     }
-    await createGrant({
-      guestSid,
-      cadastreNumber: parsed.data.cadastreNumber ?? null,
-      featureHash: featureHashForAccess(parsed.data.cadastreFeature),
-      source: "admin"
-    });
-    return reply.status(200).send({ ok: true, mode: "master_code" });
+  } else if (providerStatus === "canceled") {
+    await pool.query(
+      `
+        UPDATE payment_intents
+        SET status = 'cancelled', provider_payment_id = $2, updated_at = NOW()
+        WHERE intent_id = $1
+      `,
+      [intentId, providerPaymentId]
+    );
   }
-  const wantedHash = parsed.data.cadastreFeature ? featureHashForAccess(parsed.data.cadastreFeature) : null;
-  const codeHash = hashSecret(inputCode);
-
-  const { rows } = await pool.query(
-    `
-      SELECT invite_id, cadastre_number, feature_hash
-      FROM access_invites
-      WHERE code_hash = $1
-        AND expires_at > NOW()
-        AND uses_count < uses_limit
-      LIMIT 1
-    `,
-    [codeHash]
-  );
-  if (!rows.length) return reply.status(404).send({ message: "Код недействителен" });
-  const row = rows[0];
-  if (row.feature_hash && wantedHash && row.feature_hash !== wantedHash) {
-    return reply.status(403).send({ message: "Код не подходит для этого участка" });
-  }
-
-  await pool.query(`UPDATE access_invites SET uses_count = uses_count + 1 WHERE invite_id = $1`, [row.invite_id]);
-  await createGrant({
-    guestSid,
-    cadastreNumber: row.cadastre_number,
-    featureHash: row.feature_hash,
-    source: "invite_code"
+  await logPaymentEvent(intentId, "webhook", {
+    event,
+    provider: "yookassa",
+    providerPaymentId,
+    providerStatus
   });
   return reply.status(200).send({ ok: true });
 });
 
-fastify.get("/api/access/activate/link", async (request, reply) => {
-  const token = String(request.query?.token ?? "").trim();
-  if (!token) return reply.status(400).send({ message: "token обязателен" });
-  const guestSid = await ensureGuestSid(request, reply);
-
-  const { rows } = await pool.query(
-    `
-      SELECT invite_id, cadastre_number, feature_hash
-      FROM access_invites
-      WHERE token_hash = $1
-        AND expires_at > NOW()
-        AND uses_count < uses_limit
-      LIMIT 1
-    `,
-    [hashSecret(token)]
-  );
-  if (!rows.length) return reply.status(404).send({ message: "Ссылка недействительна" });
-  const row = rows[0];
-  await pool.query(`UPDATE access_invites SET uses_count = uses_count + 1 WHERE invite_id = $1`, [row.invite_id]);
-  await createGrant({
-    guestSid,
-    cadastreNumber: row.cadastre_number,
-    featureHash: row.feature_hash,
-    source: "invite_link"
-  });
-  return reply.status(200).send({ ok: true });
+fastify.get("/api/payments/yookassa/return", async (_request, reply) => {
+  return reply.redirect("/risk-map");
 });
 
 fastify.post("/api/report/build", async (request, reply) => {

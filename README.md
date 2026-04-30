@@ -396,3 +396,63 @@ npm run lint
 - Адрес сайта: **`https://geo-risk.ru`**
 - Ссылка на страницу с реквизитами: **`https://geo-risk.ru/requisites`**
 - Ссылка на условия оказания услуг (оферта): **`https://geo-risk.ru/offer`**
+
+### Техническая интеграция YooKassa (backend)
+
+- Endpoint создания оплаты: `POST /api/payments/yookassa/create`
+- Endpoint webhook: `POST /api/payments/yookassa/webhook`
+- Return URL после оплаты (редирект провайдера): `/api/payments/yookassa/return`
+- Доступ к карте и отчету выдается только после серверного подтверждения оплаты через webhook/verify
+
+Переменные окружения для API:
+
+- `YOOKASSA_SHOP_ID`
+- `YOOKASSA_SECRET_KEY`
+- `YOOKASSA_RETURN_URL` (опционально)
+- `YOOKASSA_WEBHOOK_ENABLED` (`true` по умолчанию)
+
+## Промокоды (pgAdmin / БД)
+
+Промокоды хранятся в таблице `promo_codes`. Для ручного управления используйте поле `code_plain` (читаемый код).
+
+Создать промокод:
+
+```sql
+INSERT INTO promo_codes (
+  promo_id,
+  code_plain,
+  price_rub,
+  uses_limit,
+  uses_count,
+  is_active
+)
+VALUES (
+  gen_random_uuid()::text,
+  'SPRING220',
+  220,
+  5,
+  0,
+  true
+);
+```
+
+Примеры:
+
+- `price_rub = 0` -> бесплатный доступ без перехода в оплату.
+- `price_rub = 220` -> оплата по сниженной цене 220 ₽.
+
+Увеличить лимит использований:
+
+```sql
+UPDATE promo_codes
+SET uses_limit = 20, updated_at = NOW()
+WHERE LOWER(code_plain) = LOWER('SPRING220');
+```
+
+Проверить статистику использований:
+
+```sql
+SELECT promo_id, price_rub, uses_limit, uses_count, is_active, created_at, updated_at
+FROM promo_codes
+ORDER BY created_at DESC;
+```

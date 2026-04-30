@@ -28,7 +28,7 @@ export default function OfferPage() {
             <h2 className="text-base font-semibold text-slate-900">2. Стоимость и порядок оплаты</h2>
             <p>
               Стоимость услуг указывается на странице «Тарифы». Оплата производится онлайн банковской картой/доступным
-              способом через платежный сервис Robokassa.
+              способом через платежный сервис YooKassa.
             </p>
           </section>
 
