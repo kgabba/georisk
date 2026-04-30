@@ -1,10 +1,18 @@
 import https from "node:https";
+import { spawn } from "node:child_process";
+import { randomUUID, createHash, createHmac } from "node:crypto";
+import { access } from "node:fs/promises";
+import { constants as fsConstants, createReadStream } from "node:fs";
 import Fastify from "fastify";
 import { HttpsProxyAgent } from "https-proxy-agent";
+import { dirname, join } from "node:path";
 import { Pool } from "pg";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { clipFeatureCollectionToExtent } from "./risk-map-clip.js";
 import { geeTerrainConfigured, runNasademTerrainStats } from "./nasademTerrain.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function nspdTlsInsecure() {
   const v = (process.env.NSPD_TLS_INSECURE || "").toLowerCase();
@@ -49,7 +57,7 @@ const NSPD_WMS_ZU_HEADERS = {
 };
 
 const ZU_WMS_LAYER_ID = "36048";
-const MAX_POLYGON_AREA_M2 = 50 * 100;
+const MAX_POLYGON_AREA_M2 = 200 * 100;
 const MAX_POLYGON_VERTICES = 200;
 const MAX_POLYGON_CANDIDATES = 25;
 const POLYGON_SEARCH_RATE_PER_MIN = 20;
@@ -353,8 +361,55 @@ const terrainRequestSchema = z
   })
   .refine((d) => Boolean(d.cadastreFeature || d.ring), { message: "Укажите cadastreFeature или ring" });
 
+const reportBuildSchema = z.object({
+  cadastreFeature: riskMapRequestSchema.shape.cadastreFeature,
+  cadastreNumber: z.string().trim().min(1).max(128).nullable().optional(),
+  riskSummary: z.array(z.string()).max(20).optional(),
+  mapOverlays: z.any().optional(),
+  terrain: z
+    .object({
+      maxSlopeDeg: z.number().nullable().optional(),
+      elevationM: z.number().nullable().optional()
+    })
+    .nullable()
+    .optional()
+});
+
+const reportStatusParamsSchema = z.object({
+  jobId: z.string().uuid()
+});
+
+const paymentCreateSchema = z.object({
+  cadastreFeature: riskMapRequestSchema.shape.cadastreFeature,
+  cadastreNumber: z.string().trim().min(1).max(128).nullable().optional(),
+  tariffCode: z.enum(["single_280"]),
+  promoCode: z.string().trim().min(3).max(64).optional()
+});
+
+const accessStatusSchema = z.object({
+  cadastreFeature: riskMapRequestSchema.shape.cadastreFeature,
+  cadastreNumber: z.string().trim().min(1).max(128).nullable().optional()
+});
+
+const promoApplySchema = z.object({
+  code: z.string().trim().min(3).max(64)
+});
+
 const RISK_MAP_HALF_EXTENT_METERS = 4000;
 const RISK_MAP_LAYER_LIMIT = 8000;
+const REPORT_OUTPUT_DIR = process.env.REPORT_OUTPUT_DIR?.trim() || "/app/report-output";
+const REPORT_PIPELINE_VERSION = "2026-04-22-satmap-v5";
+const REPORT_DISABLE_CACHE = (process.env.REPORT_DISABLE_CACHE ?? "").trim().toLowerCase() === "true";
+const BASE_SINGLE_TARIFF_RUB = 280.0;
+const YOOKASSA_SHOP_ID = (process.env.YOOKASSA_SHOP_ID ?? "").trim();
+const YOOKASSA_SECRET_KEY = (process.env.YOOKASSA_SECRET_KEY ?? "").trim();
+const YOOKASSA_RETURN_URL = (process.env.YOOKASSA_RETURN_URL ?? "").trim();
+const YOOKASSA_WEBHOOK_ENABLED = (process.env.YOOKASSA_WEBHOOK_ENABLED ?? "true").trim().toLowerCase() !== "false";
+const PAYMENT_DEV_MOCK = (process.env.PAYMENT_DEV_MOCK ?? "").trim().toLowerCase() === "true";
+const ACCESS_GRANT_DAYS = Number(process.env.ACCESS_GRANT_DAYS ?? 30);
+const GUEST_COOKIE = "guest_sid";
+const GUEST_SESSION_TTL_HOURS = Number(process.env.GUEST_SESSION_TTL_HOURS ?? 10);
+const SESSION_SECRET = (process.env.SESSION_SECRET ?? process.env.POSTGRES_PASSWORD ?? "").trim();
 
 function toWgs84Coord([x, y]) {
   const lon = (x / 6378137.0) * (180 / Math.PI);
@@ -401,6 +456,343 @@ function toSummary(properties = {}) {
     category: typeof options.category === "string" ? options.category : null,
     permittedUse: typeof options.permitted_use === "string" ? options.permitted_use : null
   };
+}
+
+function reportScriptPath() {
+  return process.env.REPORT_PY_SCRIPT?.trim() || join(__dirname, "..", "scripts", "build_pptx_report.py");
+}
+
+function reportPythonPath() {
+  return process.env.EE_PYTHON?.trim() || "python3";
+}
+
+function featureHashForReport(payloadForHash) {
+  return createHash("sha256").update(JSON.stringify(payloadForHash ?? null)).digest("hex");
+}
+
+function featureHashForAccess(cadastreFeature) {
+  return createHash("sha256").update(JSON.stringify(cadastreFeature?.geometry ?? null)).digest("hex");
+}
+
+function hashSecret(value) {
+  return createHash("sha256").update(String(value ?? "")).digest("hex");
+}
+
+function b64urlEncode(s) {
+  return Buffer.from(s, "utf-8").toString("base64url");
+}
+
+function b64urlDecode(s) {
+  return Buffer.from(s, "base64url").toString("utf-8");
+}
+
+function signSessionPayload(payloadJson) {
+  return createHmac("sha256", SESSION_SECRET).update(payloadJson).digest("base64url");
+}
+
+function buildGuestToken(sessionId, expiresAtUnix) {
+  const payloadJson = JSON.stringify({ sid: sessionId, exp: expiresAtUnix, v: 1 });
+  const payloadB64 = b64urlEncode(payloadJson);
+  const sig = signSessionPayload(payloadJson);
+  return `${payloadB64}.${sig}`;
+}
+
+function parseAndVerifyGuestToken(token) {
+  try {
+    const [payloadB64, sig] = String(token ?? "").split(".");
+    if (!payloadB64 || !sig) return null;
+    const payloadJson = b64urlDecode(payloadB64);
+    const expected = signSessionPayload(payloadJson);
+    if (expected !== sig) return null;
+    const payload = JSON.parse(payloadJson);
+    if (!payload?.sid || !payload?.exp) return null;
+    if (Number(payload.exp) < Math.floor(Date.now() / 1000)) return null;
+    return { sid: String(payload.sid), exp: Number(payload.exp) };
+  } catch {
+    return null;
+  }
+}
+
+function parseCookieValue(cookieHeader, name) {
+  const all = String(cookieHeader ?? "");
+  if (!all) return null;
+  const parts = all.split(";").map((x) => x.trim());
+  for (const p of parts) {
+    if (!p.startsWith(`${name}=`)) continue;
+    const v = p.slice(name.length + 1).trim();
+    if (v) return decodeURIComponent(v);
+  }
+  return null;
+}
+
+async function ensureGuestSid(request, reply) {
+  await pool.query(`DELETE FROM guest_sessions WHERE expires_at <= NOW()`);
+  const existing = parseCookieValue(request.headers.cookie, GUEST_COOKIE);
+  if (existing && SESSION_SECRET) {
+    const parsed = parseAndVerifyGuestToken(existing);
+    if (parsed?.sid) {
+      const tokenHash = hashSecret(existing);
+      const { rows } = await pool.query(
+        `
+          SELECT session_id
+          FROM guest_sessions
+          WHERE session_id = $1
+            AND token_hash = $2
+            AND expires_at > NOW()
+          LIMIT 1
+        `,
+        [parsed.sid, tokenHash]
+      );
+      if (rows.length) return parsed.sid;
+    }
+  }
+
+  const sid = randomUUID();
+  const expUnix = Math.floor(Date.now() / 1000) + GUEST_SESSION_TTL_HOURS * 3600;
+  const token = SESSION_SECRET ? buildGuestToken(sid, expUnix) : sid;
+  const maxAge = GUEST_SESSION_TTL_HOURS * 3600;
+  const isSecure = String(request.headers["x-forwarded-proto"] ?? "").includes("https");
+  await pool.query(
+    `
+      INSERT INTO guest_sessions (session_id, token_hash, expires_at)
+      VALUES ($1, $2, NOW() + ($3 || ' hours')::interval)
+      ON CONFLICT (session_id) DO UPDATE
+      SET token_hash = EXCLUDED.token_hash,
+          expires_at = EXCLUDED.expires_at
+    `,
+    [sid, hashSecret(token), String(GUEST_SESSION_TTL_HOURS)]
+  );
+  reply.header(
+    "Set-Cookie",
+    `${GUEST_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`
+  );
+  return sid;
+}
+
+function baseUrlFromRequest(request) {
+  const host = request.headers["x-forwarded-host"] || request.headers.host || "localhost";
+  const proto =
+    (request.headers["x-forwarded-proto"] || "").toString().split(",")[0].trim() ||
+    (String(host).includes("localhost") || String(host).includes("127.0.0.1") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+function yookassaAuthHeader() {
+  const basic = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64");
+  return `Basic ${basic}`;
+}
+
+function yookassaRequest({ method, path, body, idempotenceKey }) {
+  const payload = body ? JSON.stringify(body) : "";
+  const headers = {
+    Accept: "application/json",
+    Authorization: yookassaAuthHeader(),
+    "Content-Type": "application/json"
+  };
+  if (idempotenceKey) headers["Idempotence-Key"] = idempotenceKey;
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "api.yookassa.ru",
+        port: 443,
+        path,
+        method,
+        headers
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
+          let json = null;
+          if (raw) {
+            try {
+              json = JSON.parse(raw);
+            } catch {
+              json = null;
+            }
+          }
+          resolve({
+            ok: (res.statusCode ?? 500) >= 200 && (res.statusCode ?? 500) < 300,
+            status: res.statusCode ?? 500,
+            data: json
+          });
+        });
+      }
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+async function hasActiveGrant(guestSid, cadastreNumber, featureHash) {
+  if (!guestSid) return false;
+  const { rows } = await pool.query(
+    `
+      SELECT grant_id
+      FROM access_grants
+      WHERE guest_sid = $1
+        AND (cadastre_number IS NULL OR cadastre_number = $2)
+        AND (feature_hash IS NULL OR feature_hash = $3)
+        AND (expires_at IS NULL OR expires_at > NOW())
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [guestSid, cadastreNumber ?? null, featureHash ?? null]
+  );
+  return rows.length > 0;
+}
+
+async function createGrant({ guestSid, cadastreNumber, featureHash, source }) {
+  await pool.query(
+    `
+      INSERT INTO access_grants (grant_id, guest_sid, cadastre_number, feature_hash, source, expires_at)
+      VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' days')::interval)
+    `,
+    [randomUUID(), guestSid, cadastreNumber ?? null, featureHash ?? null, source, String(ACCESS_GRANT_DAYS)]
+  );
+}
+
+async function logPaymentEvent(intentId, eventType, payload = {}) {
+  await pool.query(
+    `
+      INSERT INTO payment_events (event_id, intent_id, event_type, payload_json)
+      VALUES ($1, $2, $3, $4::jsonb)
+    `,
+    [randomUUID(), intentId, eventType, JSON.stringify(payload ?? {})]
+  );
+}
+
+async function findPromoByCode(inputCode) {
+  const normalizedCode = String(inputCode ?? "").trim().toLowerCase();
+  const { rows } = await pool.query(
+    `
+      SELECT promo_id, price_rub, uses_limit, uses_count, is_active
+      FROM promo_codes
+      WHERE LOWER(code_plain) = $1
+      LIMIT 1
+    `,
+    [normalizedCode]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function consumePromoByCode(inputCode) {
+  const normalizedCode = String(inputCode ?? "").trim().toLowerCase();
+  const { rows } = await pool.query(
+    `
+      UPDATE promo_codes
+      SET uses_count = uses_count + 1,
+          updated_at = NOW()
+      WHERE LOWER(code_plain) = $1
+        AND is_active = true
+        AND uses_count < uses_limit
+      RETURNING promo_id, price_rub, uses_limit, uses_count
+    `,
+    [normalizedCode]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+async function fileExists(path) {
+  try {
+    await access(path, fsConstants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function runReportBuilder(payload, outPathAbs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(reportPythonPath(), [reportScriptPath(), "--out", outPathAbs], {
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString("utf-8");
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString("utf-8");
+    });
+    child.on("error", (err) => reject(err));
+    child.on("close", (code, signal) => {
+      if (signal) {
+        reject(new Error(`report builder terminated by signal: ${signal}`));
+        return;
+      }
+      if (code !== 0) {
+        reject(new Error((stderr || stdout || `report builder exit ${code}`).trim()));
+        return;
+      }
+      resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+    });
+
+    child.stdin.end(JSON.stringify(payload));
+  });
+}
+
+const activeReportJobs = new Set();
+
+async function startReportBuildJob(jobId, payload) {
+  if (activeReportJobs.has(jobId)) return;
+  activeReportJobs.add(jobId);
+  const outputRelPath = `${jobId}.pptx`;
+  const outputAbsPath = join(REPORT_OUTPUT_DIR, outputRelPath);
+
+  try {
+    await pool.query(
+      `
+        UPDATE report_jobs
+        SET status = 'building',
+            started_at = NOW(),
+            updated_at = NOW(),
+            output_rel_path = $2,
+            error_text = NULL
+        WHERE job_id = $1
+      `,
+      [jobId, outputRelPath]
+    );
+
+    await runReportBuilder(payload, outputAbsPath);
+
+    const ok = await fileExists(outputAbsPath);
+    if (!ok) {
+      throw new Error("report builder finished but output file is missing");
+    }
+
+    await pool.query(
+      `
+        UPDATE report_jobs
+        SET status = 'ready',
+            finished_at = NOW(),
+            updated_at = NOW()
+        WHERE job_id = $1
+      `,
+      [jobId]
+    );
+  } catch (err) {
+    await pool.query(
+      `
+        UPDATE report_jobs
+        SET status = 'failed',
+            finished_at = NOW(),
+            updated_at = NOW(),
+            error_text = $2
+        WHERE job_id = $1
+      `,
+      [jobId, String(err?.message ?? err).slice(0, 2000)]
+    );
+  } finally {
+    activeReportJobs.delete(jobId);
+  }
 }
 
 async function fetchCadastreFeature(code) {
@@ -493,7 +885,7 @@ async function searchCadastreByPolygonRing(ring, clientIp) {
     return {
       status: 400,
       body: {
-        message: `Площадь выделенной области слишком большая (~${sotok} соток). Допустимо не более 50 соток (0,5 га). Сузьте выделение.`,
+        message: `Площадь выделенной области слишком большая (~${sotok} соток). Допустимо не более 200 соток (2 га). Сузьте выделение.`,
         code: "POLYGON_TOO_LARGE",
         areaM2: Math.round(areaM2)
       }
@@ -578,6 +970,7 @@ async function waitForPoolReady(maxAttempts = 40, delayMs = 750) {
 
 async function ensureSchema() {
   await pool.query("CREATE EXTENSION IF NOT EXISTS postgis");
+  await pool.query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lead_submissions (
       id BIGSERIAL PRIMARY KEY,
@@ -622,6 +1015,132 @@ async function ensureSchema() {
     )
   `);
   await pool.query("CREATE INDEX IF NOT EXISTS idx_cadastre_cache_expires_at ON cadastre_cache (expires_at)");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS report_jobs (
+      job_id TEXT PRIMARY KEY,
+      feature_hash TEXT NOT NULL,
+      cadastre_number TEXT NULL,
+      payload_json JSONB NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('queued', 'building', 'ready', 'failed')),
+      output_rel_path TEXT NULL,
+      error_text TEXT NULL,
+      started_at TIMESTAMPTZ NULL,
+      finished_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_report_jobs_feature_hash_created ON report_jobs (feature_hash, created_at DESC)"
+  );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_report_jobs_status_created ON report_jobs (status, created_at DESC)"
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_intents (
+      intent_id TEXT PRIMARY KEY,
+      guest_sid TEXT NOT NULL,
+      cadastre_number TEXT NULL,
+      feature_hash TEXT NULL,
+      tariff_code TEXT NOT NULL,
+      amount_rub NUMERIC(10,2) NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('created', 'paid', 'failed', 'cancelled')),
+      provider_payment_id TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_payment_intents_guest_created ON payment_intents (guest_sid, created_at DESC)"
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_events (
+      event_id TEXT PRIMARY KEY,
+      intent_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_payment_events_intent_created ON payment_events (intent_id, created_at DESC)"
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS access_grants (
+      grant_id TEXT PRIMARY KEY,
+      guest_sid TEXT NOT NULL,
+      cadastre_number TEXT NULL,
+      feature_hash TEXT NULL,
+      source TEXT NOT NULL CHECK (source IN ('payment', 'invite_link', 'invite_code', 'admin')),
+      expires_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_access_grants_guest_expires ON access_grants (guest_sid, expires_at DESC)"
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      promo_id TEXT PRIMARY KEY,
+      code_plain TEXT UNIQUE,
+      code_hash TEXT UNIQUE,
+      price_rub NUMERIC(10,2) NOT NULL CHECK (price_rub >= 0),
+      uses_limit INT NOT NULL CHECK (uses_limit >= 0),
+      uses_count INT NOT NULL DEFAULT 0 CHECK (uses_count >= 0),
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS code_plain TEXT`);
+  await pool.query(`ALTER TABLE promo_codes ALTER COLUMN code_hash DROP NOT NULL`);
+  await pool.query(`
+    DO $$
+    DECLARE
+      c RECORD;
+    BEGIN
+      FOR c IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'promo_codes'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%uses_limit%'
+      LOOP
+        EXECUTE format('ALTER TABLE promo_codes DROP CONSTRAINT %I', c.conname);
+      END LOOP;
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'promo_codes'::regclass
+          AND conname = 'chk_promo_codes_uses_limit_nonnegative'
+      ) THEN
+        ALTER TABLE promo_codes
+          ADD CONSTRAINT chk_promo_codes_uses_limit_nonnegative CHECK (uses_limit >= 0);
+      END IF;
+    END
+    $$;
+  `);
+  await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS uq_promo_codes_code_plain ON promo_codes (LOWER(code_plain))");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_promo_codes_active ON promo_codes (is_active)");
+  await pool.query("DROP TABLE IF EXISTS access_invites");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS guest_sessions (
+      session_id TEXT PRIMARY KEY,
+      token_hash TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_guest_sessions_expires ON guest_sessions (expires_at)"
+  );
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS oopt_areas (
@@ -1005,6 +1524,387 @@ fastify.post("/api/terrain/nasadem", async (request, reply) => {
     source: "NASA/NASADEM_HGT/001",
     scaleMeters: 30
   });
+});
+
+fastify.post("/api/access/status", async (request, reply) => {
+  const parsed = accessStatusSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
+  }
+  const guestSid = await ensureGuestSid(request, reply);
+  const featureHash = featureHashForAccess(parsed.data.cadastreFeature);
+  const allowed = await hasActiveGrant(guestSid, parsed.data.cadastreNumber ?? null, featureHash);
+  return reply.status(200).send({ allowed });
+});
+
+fastify.post("/api/promo/apply", async (request, reply) => {
+  const parsed = promoApplySchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
+  }
+  const row = await findPromoByCode(parsed.data.code);
+  if (!row || !row.is_active || row.uses_count >= row.uses_limit) {
+    return reply.status(404).send({ message: "Промокод недействителен" });
+  }
+  const priceRub = Number(row.price_rub);
+  const usesLeft = Math.max(0, Number(row.uses_limit) - Number(row.uses_count));
+  return reply.status(200).send({
+    ok: true,
+    priceRub,
+    isFree: priceRub === 0,
+    usesLeft
+  });
+});
+
+fastify.post("/api/payments/yookassa/create", async (request, reply) => {
+  const parsed = paymentCreateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректное тело запроса", issues: parsed.error.flatten() });
+  }
+
+  const guestSid = await ensureGuestSid(request, reply);
+  let amount = BASE_SINGLE_TARIFF_RUB;
+  const intentId = randomUUID();
+  const cadastreNumber = parsed.data.cadastreNumber ?? null;
+  const featureHash = featureHashForAccess(parsed.data.cadastreFeature);
+  const promoCode = parsed.data.promoCode?.trim() || null;
+  let promoMeta = null;
+
+  if (promoCode) {
+    const consumed = await consumePromoByCode(promoCode);
+    if (!consumed) {
+      return reply.status(400).send({ message: "Промокод недействителен или закончился лимит использований" });
+    }
+    amount = Number(consumed.price_rub);
+    promoMeta = {
+      promoId: consumed.promo_id,
+      usesLeft: Math.max(0, Number(consumed.uses_limit) - Number(consumed.uses_count))
+    };
+  }
+
+  await pool.query(
+    `
+      INSERT INTO payment_intents (intent_id, guest_sid, cadastre_number, feature_hash, tariff_code, amount_rub, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'created')
+    `,
+    [intentId, guestSid, cadastreNumber, featureHash, parsed.data.tariffCode, amount]
+  );
+  await logPaymentEvent(intentId, "intent_created", {
+    guestSid,
+    cadastreNumber,
+    featureHash,
+    tariffCode: parsed.data.tariffCode,
+    amountRub: amount,
+    promoCodeApplied: Boolean(promoCode),
+    promoMeta
+  });
+
+  if (amount === 0) {
+    await pool.query(`UPDATE payment_intents SET status = 'paid', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+    await createGrant({
+      guestSid,
+      cadastreNumber,
+      featureHash,
+      source: "payment"
+    });
+    await logPaymentEvent(intentId, "paid_by_promo", { promoMeta });
+    return reply.status(200).send({
+      intentId,
+      mode: "free-promo",
+      paymentUrl: "/risk-map"
+    });
+  }
+
+  const baseUrl = baseUrlFromRequest(request);
+  if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
+    if (!PAYMENT_DEV_MOCK) {
+      await pool.query(`UPDATE payment_intents SET status = 'failed', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+      await logPaymentEvent(intentId, "provider_not_configured", { provider: "yookassa" });
+      return reply.status(503).send({ message: "Платежный провайдер не настроен" });
+    }
+    return reply.status(200).send({
+      intentId,
+      paymentUrl: `${baseUrl}/api/payments/dev/success?intentId=${encodeURIComponent(intentId)}`,
+      mode: "dev-mock"
+    });
+  }
+
+  const returnUrl = YOOKASSA_RETURN_URL || `${baseUrl}/api/payments/yookassa/return`;
+  const idempotenceKey = randomUUID();
+  const yookassaPayload = {
+    amount: { value: amount.toFixed(2), currency: "RUB" },
+    capture: true,
+    confirmation: { type: "redirect", return_url: returnUrl },
+    description: `GeoRisk access ${cadastreNumber ?? ""}`.trim(),
+    metadata: {
+      intent_id: intentId,
+      cadastre_number: cadastreNumber ?? "",
+      feature_hash: featureHash,
+      guest_sid: guestSid,
+      promo_id: promoMeta?.promoId ?? ""
+    }
+  };
+  const yk = await yookassaRequest({
+    method: "POST",
+    path: "/v3/payments",
+    body: yookassaPayload,
+    idempotenceKey
+  });
+  if (!yk.ok || !yk.data?.id || !yk.data?.confirmation?.confirmation_url) {
+    await pool.query(`UPDATE payment_intents SET status = 'failed', updated_at = NOW() WHERE intent_id = $1`, [intentId]);
+    await logPaymentEvent(intentId, "create_failed", { status: yk.status, payload: yk.data ?? null });
+    return reply.status(502).send({ message: "Не удалось создать платеж в YooKassa" });
+  }
+  await pool.query(
+    `
+      UPDATE payment_intents
+      SET provider_payment_id = $2, updated_at = NOW()
+      WHERE intent_id = $1
+    `,
+    [intentId, yk.data.id]
+  );
+  await logPaymentEvent(intentId, "provider_created", {
+    provider: "yookassa",
+    providerPaymentId: yk.data.id,
+    status: yk.data.status ?? null
+  });
+
+  return reply.status(200).send({
+    intentId,
+    paymentUrl: yk.data.confirmation.confirmation_url,
+    mode: "yookassa"
+  });
+});
+
+fastify.get("/api/payments/dev/success", async (request, reply) => {
+  if (!PAYMENT_DEV_MOCK) return reply.status(404).send({ message: "not found" });
+  const intentId = String(request.query?.intentId ?? "").trim();
+  if (!intentId) return reply.status(400).send({ message: "intentId обязателен" });
+  const guestSid = await ensureGuestSid(request, reply);
+
+  const { rows } = await pool.query(
+    `
+      UPDATE payment_intents
+      SET status = 'paid', updated_at = NOW()
+      WHERE intent_id = $1
+      RETURNING intent_id, cadastre_number, feature_hash
+    `,
+    [intentId]
+  );
+  if (!rows.length) return reply.status(404).send({ message: "Платеж не найден" });
+  await logPaymentEvent(intentId, "paid_dev_mock", { guestSid });
+
+  await createGrant({
+    guestSid,
+    cadastreNumber: rows[0].cadastre_number,
+    featureHash: rows[0].feature_hash,
+    source: "payment"
+  });
+  return reply.redirect("/risk-map");
+});
+
+fastify.post("/api/payments/yookassa/webhook", async (request, reply) => {
+  if (!YOOKASSA_WEBHOOK_ENABLED) return reply.status(200).send({ ok: true, skipped: true });
+  const event = String(request.body?.event ?? "").trim();
+  const providerPaymentId = String(request.body?.object?.id ?? "").trim();
+  if (!event || !providerPaymentId) return reply.status(400).send({ message: "bad webhook payload" });
+  const yk = await yookassaRequest({
+    method: "GET",
+    path: `/v3/payments/${encodeURIComponent(providerPaymentId)}`
+  });
+  if (!yk.ok || !yk.data?.id) return reply.status(502).send({ message: "provider verify failed" });
+
+  const metaIntentId = String(yk.data?.metadata?.intent_id ?? "").trim();
+  let intentId = metaIntentId;
+  if (!intentId) {
+    const byProvider = await pool.query(
+      `SELECT intent_id FROM payment_intents WHERE provider_payment_id = $1 LIMIT 1`,
+      [providerPaymentId]
+    );
+    intentId = byProvider.rows[0]?.intent_id ?? "";
+  }
+  if (!intentId) return reply.status(200).send({ ok: true, skipped: "intent_not_found" });
+
+  const current = await pool.query(
+    `SELECT intent_id, guest_sid, cadastre_number, feature_hash, status FROM payment_intents WHERE intent_id = $1 LIMIT 1`,
+    [intentId]
+  );
+  if (!current.rows.length) return reply.status(200).send({ ok: true, skipped: "intent_missing" });
+
+  const providerStatus = String(yk.data.status ?? "").trim();
+  if (providerStatus === "succeeded") {
+    await pool.query(
+      `
+        UPDATE payment_intents
+        SET status = 'paid', provider_payment_id = $2, updated_at = NOW()
+        WHERE intent_id = $1
+      `,
+      [intentId, providerPaymentId]
+    );
+    if (current.rows[0].status !== "paid") {
+      await createGrant({
+        guestSid: current.rows[0].guest_sid,
+        cadastreNumber: current.rows[0].cadastre_number,
+        featureHash: current.rows[0].feature_hash,
+        source: "payment"
+      });
+    }
+  } else if (providerStatus === "canceled") {
+    await pool.query(
+      `
+        UPDATE payment_intents
+        SET status = 'cancelled', provider_payment_id = $2, updated_at = NOW()
+        WHERE intent_id = $1
+      `,
+      [intentId, providerPaymentId]
+    );
+  }
+  await logPaymentEvent(intentId, "webhook", {
+    event,
+    provider: "yookassa",
+    providerPaymentId,
+    providerStatus
+  });
+  return reply.status(200).send({ ok: true });
+});
+
+fastify.get("/api/payments/yookassa/return", async (_request, reply) => {
+  return reply.redirect("/risk-map");
+});
+
+fastify.post("/api/report/build", async (request, reply) => {
+  const parsed = reportBuildSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply.status(400).send({
+      message: "Некорректное тело запроса",
+      issues: parsed.error.flatten()
+    });
+  }
+
+  const feature = parsed.data.cadastreFeature;
+  const hashPayload = {
+    v: REPORT_PIPELINE_VERSION,
+    geometry: feature?.geometry ?? null,
+    riskSummary: parsed.data.riskSummary ?? [],
+    terrain: parsed.data.terrain ?? null
+  };
+  const fh = featureHashForReport(hashPayload);
+  const payload = {
+    cadastreNumber: parsed.data.cadastreNumber ?? null,
+    cadastreFeature: feature,
+    riskSummary: parsed.data.riskSummary ?? [],
+    mapOverlays: parsed.data.mapOverlays ?? null,
+    terrain: parsed.data.terrain ?? null
+  };
+  const guestSid = await ensureGuestSid(request, reply);
+  const accessHash = featureHashForAccess(feature);
+  const allowed = await hasActiveGrant(guestSid, parsed.data.cadastreNumber ?? null, accessHash);
+  if (!allowed) {
+    return reply.status(402).send({ message: "Требуется оплата", code: "PAYMENT_REQUIRED" });
+  }
+
+  if (!REPORT_DISABLE_CACHE) {
+    const cached = await pool.query(
+      `
+        SELECT job_id, status, output_rel_path, error_text
+        FROM report_jobs
+        WHERE feature_hash = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [fh]
+    );
+    if (cached.rows.length) {
+      const row = cached.rows[0];
+      if (row.status === "ready" || row.status === "building" || row.status === "queued") {
+        return reply.status(200).send({
+          jobId: row.job_id,
+          status: row.status,
+          downloadUrl: row.status === "ready" ? `/api/report/download/${row.job_id}` : null
+        });
+      }
+    }
+  }
+
+  const jobId = randomUUID();
+  await pool.query(
+    `
+      INSERT INTO report_jobs (job_id, feature_hash, cadastre_number, payload_json, status)
+      VALUES ($1, $2, $3, $4::jsonb, 'queued')
+    `,
+    [jobId, fh, parsed.data.cadastreNumber ?? null, JSON.stringify(payload)]
+  );
+
+  void startReportBuildJob(jobId, payload);
+
+  return reply.status(202).send({ jobId, status: "queued" });
+});
+
+fastify.get("/api/report/status/:jobId", async (request, reply) => {
+  const parsed = reportStatusParamsSchema.safeParse(request.params ?? {});
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректный jobId" });
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT job_id, status, error_text, output_rel_path
+      FROM report_jobs
+      WHERE job_id = $1
+      LIMIT 1
+    `,
+    [parsed.data.jobId]
+  );
+  if (!rows.length) {
+    return reply.status(404).send({ message: "Задача отчета не найдена", code: "REPORT_JOB_NOT_FOUND" });
+  }
+  const row = rows[0];
+  return reply.status(200).send({
+    jobId: row.job_id,
+    status: row.status,
+    error: row.error_text ?? null,
+    downloadUrl: row.status === "ready" ? `/api/report/download/${row.job_id}` : null
+  });
+});
+
+fastify.get("/api/report/download/:jobId", async (request, reply) => {
+  const parsed = reportStatusParamsSchema.safeParse(request.params ?? {});
+  if (!parsed.success) {
+    return reply.status(400).send({ message: "Некорректный jobId" });
+  }
+  const { rows } = await pool.query(
+    `
+      SELECT job_id, status, output_rel_path, cadastre_number, feature_hash
+      FROM report_jobs
+      WHERE job_id = $1
+      LIMIT 1
+    `,
+    [parsed.data.jobId]
+  );
+  if (!rows.length) {
+    return reply.status(404).send({ message: "Задача отчета не найдена", code: "REPORT_JOB_NOT_FOUND" });
+  }
+  const row = rows[0];
+  const guestSid = await ensureGuestSid(request, reply);
+  const allowed = await hasActiveGrant(guestSid, row.cadastre_number ?? null, row.feature_hash ?? null);
+  if (!allowed) {
+    return reply.status(402).send({ message: "Требуется оплата", code: "PAYMENT_REQUIRED" });
+  }
+  if (row.status !== "ready" || !row.output_rel_path) {
+    return reply.status(409).send({ message: "Отчет еще не готов", code: "REPORT_NOT_READY", status: row.status });
+  }
+
+  const absPath = join(REPORT_OUTPUT_DIR, row.output_rel_path);
+  if (!(await fileExists(absPath))) {
+    return reply
+      .status(410)
+      .send({ message: "Файл отчета не найден на диске", code: "REPORT_FILE_MISSING" });
+  }
+
+  const fallbackName = `report-${row.job_id}.pptx`;
+  reply.header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+  reply.header("Content-Disposition", `attachment; filename=\"${fallbackName}\"`);
+  return reply.send(createReadStream(absPath));
 });
 
 fastify.post("/api/leads", async (request, reply) => {

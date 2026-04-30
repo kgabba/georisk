@@ -27,12 +27,23 @@ const RISK_MAP_OVERLAYS_URL =
 
 /** Расчёт рельефа только на Fastify; в dev Next проксирует `/api/*` на backend (см. next.config). */
 const TERRAIN_NASADEM_URL = "/api/terrain/nasadem";
+const REPORT_BUILD_URL = "/api/report/build";
+const REPORT_DOWNLOAD_BUTTON_DISABLED = true;
+
+type ReportJobStatus = "queued" | "building" | "ready" | "failed";
 
 type NasademTerrainResponse = {
   maxSlopeDeg: number | null;
   elevationM: number | null;
   source?: string;
   scaleMeters?: number;
+};
+
+type ReportBuildResponse = {
+  jobId: string;
+  status: ReportJobStatus;
+  downloadUrl?: string | null;
+  error?: string | null;
 };
 
 function formatMeters(m: number | null | undefined): string {
@@ -48,6 +59,7 @@ function formatDegrees(d: number | null | undefined): string {
 
 /** Порог «нормальный уклон» для подписи под NASADEM (градусы). */
 const SLOPE_NORM_MAX_DEG = 15;
+const SLOPE_MODERATE_MIN_DEG = 8;
 
 /** На сколько уровней ближе показывать карту (как два нажатия «+»), не выше maxZoom карты слоёв. */
 const RISK_MAP_EXTRA_ZOOM = 2;
@@ -66,7 +78,13 @@ export default function RiskMapPage() {
   const [terrain, setTerrain] = useState<NasademTerrainResponse | null>(null);
   const [terrainLoading, setTerrainLoading] = useState(false);
   const [terrainNote, setTerrainNote] = useState<string | null>(null);
+  const [reportJobId, setReportJobId] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<ReportJobStatus | null>(null);
+  const [reportDownloadUrl, setReportDownloadUrl] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [accessAllowed, setAccessAllowed] = useState<boolean | null>(null);
+  const mapIsLoading = loading;
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +117,23 @@ export default function RiskMapPage() {
     if (typeof window === "undefined") return;
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      setError("Нет выбранного участка. Вернитесь на главную и выберите кадастровый участок.");
+      const params = new URLSearchParams(window.location.search);
+      const cadastreNumber = params.get("cadastreNumber");
+      if (!cadastreNumber) {
+        setError("Нет выбранного участка. Вернитесь на главную и выберите кадастровый участок.");
+        return;
+      }
+      fetch(`/api/cadastre/${encodeURIComponent(cadastreNumber)}`)
+        .then(async (res) => {
+          const body = (await res.json()) as { feature?: GeoJSON.Feature; summary?: { cadNum?: string; label?: string } };
+          if (!res.ok || !body?.feature?.geometry) throw new Error("Не удалось загрузить участок по ссылке.");
+          const parsed: StoredPayload = {
+            cadastreFeature: body.feature,
+            cadastreNumber: body.summary?.cadNum ?? body.summary?.label ?? cadastreNumber
+          };
+          setPayload(parsed);
+        })
+        .catch((e: unknown) => setError(String((e as Error)?.message || e)));
       return;
     }
     try {
@@ -115,6 +149,7 @@ export default function RiskMapPage() {
 
   useEffect(() => {
     if (!payload) return;
+    if (accessAllowed !== true) return;
     setLoading(true);
     setError(null);
     fetch(RISK_MAP_OVERLAYS_URL, {
@@ -142,10 +177,31 @@ export default function RiskMapPage() {
       })
       .catch((e: unknown) => setError(String((e as Error)?.message || e)))
       .finally(() => setLoading(false));
-  }, [payload]);
+  }, [payload, accessAllowed]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (mapIsLoading) {
+      map.dragging.disable();
+      map.scrollWheelZoom.disable();
+      map.doubleClickZoom.disable();
+      map.boxZoom.disable();
+      map.keyboard.disable();
+      map.touchZoom.disable();
+      return;
+    }
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.boxZoom.enable();
+    map.keyboard.enable();
+    map.touchZoom.enable();
+  }, [mapIsLoading, mapReady]);
 
   useEffect(() => {
     if (!payload?.cadastreFeature) return;
+    if (accessAllowed !== true) return;
     setTerrain(null);
     setTerrainNote(null);
     setTerrainLoading(true);
@@ -178,7 +234,118 @@ export default function RiskMapPage() {
       })
       .catch((e: unknown) => setTerrainNote(String((e as Error)?.message || e)))
       .finally(() => setTerrainLoading(false));
+  }, [payload, accessAllowed]);
+
+  useEffect(() => {
+    if (!payload?.cadastreFeature) return;
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const res = await fetch("/api/access/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cadastreFeature: payload.cadastreFeature,
+            cadastreNumber: payload.cadastreNumber
+          })
+        });
+        const body = (await res.json()) as { allowed?: boolean };
+        if (cancelled) return;
+        if (!res.ok || !body?.allowed) {
+          setAccessAllowed(false);
+          setError("Доступ к карте рисков требует оплату.");
+          return;
+        }
+        setAccessAllowed(true);
+      } catch {
+        if (!cancelled) {
+          setAccessAllowed(false);
+          setError("Не удалось проверить доступ к карте рисков.");
+        }
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [payload]);
+
+  useEffect(() => {
+    if (accessAllowed !== true) return;
+    if (!payload?.cadastreFeature || !data || reportJobId) return;
+    let cancelled = false;
+    setReportError(null);
+    setReportStatus("queued");
+    const risks = parcelRiskLabelsIntersecting(data);
+
+    fetch(REPORT_BUILD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cadastreFeature: payload.cadastreFeature,
+        cadastreNumber: payload.cadastreNumber,
+        riskSummary: risks,
+        mapOverlays: data,
+        terrain: terrain
+          ? {
+              maxSlopeDeg: terrain.maxSlopeDeg,
+              elevationM: terrain.elevationM
+            }
+          : null
+      })
+    })
+      .then(async (res) => {
+        const body = (await res.json()) as { message?: string } & ReportBuildResponse;
+        if (!res.ok) {
+          throw new Error(body?.message || "Не удалось запустить подготовку отчета.");
+        }
+        if (cancelled) return;
+        setReportJobId(body.jobId);
+        setReportStatus(body.status);
+        setReportDownloadUrl(body.downloadUrl || null);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setReportStatus("failed");
+          setReportError(String((e as Error)?.message || e));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [payload, data, terrain, reportJobId, accessAllowed]);
+
+  useEffect(() => {
+    if (!reportJobId || reportStatus === "ready" || reportStatus === "failed") return;
+    let stopped = false;
+
+    const poll = () => {
+      fetch(`/api/report/status/${reportJobId}`)
+        .then(async (res) => {
+          const body = (await res.json()) as { message?: string } & ReportBuildResponse;
+          if (!res.ok) throw new Error(body?.message || "Не удалось получить статус отчета.");
+          if (stopped) return;
+          setReportStatus(body.status);
+          setReportDownloadUrl(body.downloadUrl || null);
+          setReportError(body.error || null);
+        })
+        .catch((e: unknown) => {
+          if (!stopped) {
+            setReportStatus("failed");
+            setReportError(String((e as Error)?.message || e));
+          }
+        });
+    };
+
+    poll();
+    const timer = window.setInterval(poll, 2500);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [reportJobId, reportStatus]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -236,10 +403,32 @@ export default function RiskMapPage() {
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
       <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-        <h1 className="text-lg font-semibold">Карта рисков участка</h1>
-        <p className="mt-1 text-sm text-slate-300">
-          Участок. Кадастровый номер: {payload?.cadastreNumber || "—"}
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Карта рисков участка</h1>
+            <p className="mt-1 text-sm text-slate-300">
+              Участок. Кадастровый номер: {payload?.cadastreNumber || "—"}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={REPORT_DOWNLOAD_BUTTON_DISABLED || reportStatus !== "ready"}
+            onClick={() => {
+              if (REPORT_DOWNLOAD_BUTTON_DISABLED) return;
+              if (reportStatus === "ready" && reportDownloadUrl) {
+                window.location.href = reportDownloadUrl;
+              }
+            }}
+            className="inline-flex w-full items-center justify-center rounded-lg border border-slate-500/80 bg-slate-800/90 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700/90 disabled:cursor-not-allowed disabled:opacity-70 sm:mt-0 sm:w-auto"
+          >
+            {REPORT_DOWNLOAD_BUTTON_DISABLED
+              ? "Скачать отчет"
+              : reportStatus === "ready"
+                ? "Скачать отчет"
+                : "Подготовка отчета для скачивания..."}
+          </button>
+        </div>
+        {reportError ? <p className="mt-1 text-sm text-amber-300">{reportError}</p> : null}
         {loading ? <p className="mt-2 text-sm text-slate-300">Загружаю геослои…</p> : null}
         {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
         {data ? (
@@ -281,15 +470,22 @@ export default function RiskMapPage() {
                   <span className="text-slate-400">Максимальный уклон на участке: </span>
                   <span className="text-slate-100">{formatDegrees(terrain.maxSlopeDeg)}</span>
                   {terrain.maxSlopeDeg != null && Number.isFinite(terrain.maxSlopeDeg) ? (
-                    terrain.maxSlopeDeg <= SLOPE_NORM_MAX_DEG ? (
-                      <span className="text-slate-500"> (в пределах нормы)</span>
-                    ) : (
+                    terrain.maxSlopeDeg > SLOPE_NORM_MAX_DEG ? (
                       <>
                         {" "}
                         <span className="font-medium text-red-400">
                           Критический уклон, возможно развитие оползней.
                         </span>
                       </>
+                    ) : terrain.maxSlopeDeg > SLOPE_MODERATE_MIN_DEG ? (
+                      <>
+                        {" "}
+                        <span className="font-medium text-orange-300">
+                          Умеренный риск: требуется повышенное внимание при строительстве.
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500"> (в пределах нормы)</span>
                     )
                   ) : null}
                 </p>
@@ -300,10 +496,22 @@ export default function RiskMapPage() {
       </section>
       <div className="relative mx-auto mb-6 h-[calc(100vh-150px)] max-w-7xl overflow-hidden rounded-xl border border-slate-700">
         <div ref={containerRef} className="h-full w-full" />
+        {mapIsLoading ? (
+          <div className="absolute inset-0 z-[650] flex items-center justify-center bg-slate-900/75 backdrop-blur-[1px]">
+            <div className="rounded-xl bg-white/95 px-6 py-5 text-center shadow-xl ring-1 ring-slate-200">
+              <img
+                src="/risk-map-loading-logo.jpg"
+                alt="Загрузка карты"
+                className="mx-auto h-14 w-14 animate-pulse rounded-full object-cover"
+              />
+              <p className="mt-3 text-sm font-medium text-slate-700">Загружаю карту рисков…</p>
+            </div>
+          </div>
+        ) : null}
         <aside className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[min(22rem,calc(100%-1.5rem))]">
-          <div className="pointer-events-auto rounded-lg border border-slate-600 bg-slate-950/92 px-3 py-2.5 shadow-lg backdrop-blur-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Легенда</p>
-            <ul className="mt-2 space-y-2 text-xs leading-snug text-slate-100">
+          <div className="pointer-events-auto rounded-lg border border-white/45 bg-black/92 px-3 py-2.5 shadow-2xl ring-2 ring-white/20 backdrop-blur-md">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-white">Легенда</p>
+            <ul className="mt-2 space-y-2 text-xs leading-snug text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.9)]">
               <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-blue-700"
@@ -328,11 +536,11 @@ export default function RiskMapPage() {
                 />
                 <span>ООПТ</span>
               </li>
-              <li className="flex gap-2 border-t border-slate-700 pt-2 text-slate-300">
+              <li className="flex gap-2 border-t border-white/35 pt-2">
                 <span className="mt-0.5 h-0.5 w-6 shrink-0 self-center rounded-full bg-orange-500" aria-hidden />
                 <span>Линии ЛЭП</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-cyan-600"
                   style={{ backgroundColor: "rgba(103, 232, 249, 0.25)" }}
@@ -340,7 +548,7 @@ export default function RiskMapPage() {
                 />
                 <span>Водные объекты (охрана)</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span
                   className="mt-0.5 h-4 w-6 shrink-0 rounded-sm border border-yellow-600"
                   style={{ backgroundColor: "rgba(253, 224, 71, 0.28)" }}
@@ -348,11 +556,11 @@ export default function RiskMapPage() {
                 />
                 <span>Землепользование (средний / высокий риск)</span>
               </li>
-              <li className="flex gap-2 text-slate-300">
+              <li className="flex gap-2">
                 <span className="mt-0.5 h-3 w-6 shrink-0 rounded-sm border-2 border-red-500 bg-transparent" aria-hidden />
                 <span>Кадастровый участок</span>
               </li>
-              <li className="flex gap-2 text-slate-400">
+              <li className="flex gap-2 text-white">
                 <span className="mt-0.5 h-3 w-6 shrink-0 rounded-sm border border-white/50 bg-transparent" aria-hidden />
                 <span>Рамка экстента 8×8 км</span>
               </li>

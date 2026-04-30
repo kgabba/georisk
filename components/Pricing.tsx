@@ -60,6 +60,7 @@ export function Pricing({ mode = "default" }: { mode?: "default" | "panel" } = {
             </p>
           </div>
         </div>
+
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import type { CadastreSummary } from "@/lib/cadastre";
 import { useContactAdminModal } from "@/components/ContactAdminModal";
 
@@ -132,6 +132,12 @@ export function CadastreInfoPanel({
   ctaRowRef
 }: CadastreInfoPanelProps) {
   const { openContactModal } = useContactAdminModal();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [payAmountRub, setPayAmountRub] = useState<number>(280);
+  const [promoNotice, setPromoNotice] = useState<string | null>(null);
 
   if (!summary) return null;
 
@@ -139,17 +145,108 @@ export function CadastreInfoPanel({
   const rows = buildDisplayRows(opts, summary);
   const cadNum = summary.cadNum ?? summary.label ?? "—";
 
-  function handleCheckRisksClick() {
-    if (typeof window !== "undefined" && cadastreFeature) {
-      const cadastreNumber = summary?.cadNum ?? summary?.label ?? null;
-      window.localStorage.setItem(
-        "georisk:risk-map-payload",
-        JSON.stringify({ cadastreFeature, cadastreNumber })
+  const cadastreNumber = summary?.cadNum ?? summary?.label ?? null;
+
+  function saveRiskMapPayload() {
+    if (typeof window === "undefined" || !cadastreFeature) return false;
+    window.localStorage.setItem(
+      "georisk:risk-map-payload",
+      JSON.stringify({ cadastreFeature, cadastreNumber })
+    );
+    return true;
+  }
+
+  async function handlePayClick() {
+    if (!cadastreFeature) return;
+    setPayLoading(true);
+    setPayError(null);
+    try {
+      const res = await fetch("/api/payments/yookassa/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cadastreFeature,
+          cadastreNumber,
+          tariffCode: "single_280",
+          promoCode: promoCode.trim() || undefined
+        })
+      });
+      const body = (await res.json()) as { paymentUrl?: string; mode?: string; message?: string };
+      if (!res.ok || !body?.paymentUrl) {
+        throw new Error(body?.message || "Не удалось создать оплату");
+      }
+      saveRiskMapPayload();
+      if (body.mode === "free-promo") {
+        window.open("/risk-map", "_blank", "noopener,noreferrer");
+      } else {
+        window.open(body.paymentUrl, "_blank", "noopener,noreferrer");
+      }
+      setPaywallOpen(false);
+    } catch (e) {
+      setPayError(String((e as Error)?.message || e));
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function handleApplyPromo() {
+    if (!promoCode.trim()) return;
+    setPayLoading(true);
+    setPayError(null);
+    setPromoNotice(null);
+    try {
+      const res = await fetch("/api/promo/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoCode.trim()
+        })
+      });
+      const body = (await res.json()) as { message?: string; priceRub?: number; isFree?: boolean };
+      if (!res.ok || typeof body.priceRub !== "number") throw new Error(body?.message || "Промокод недействителен");
+      setPayAmountRub(body.priceRub);
+      setPromoNotice(
+        body.isFree ? "Промокод применен: доступ будет бесплатным." : `Промокод применен: новая цена ${body.priceRub} ₽.`
       );
-      window.open("/risk-map", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setPayError(String((e as Error)?.message || e));
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function handleCheckRisksClick() {
+    if (!cadastreFeature) {
+      openContactModal();
       return;
     }
-    openContactModal();
+    setPayLoading(true);
+    setPayError(null);
+    try {
+      const res = await fetch("/api/access/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cadastreFeature,
+          cadastreNumber
+        })
+      });
+      const body = (await res.json()) as { allowed?: boolean; message?: string };
+      if (res.ok && body.allowed) {
+        saveRiskMapPayload();
+        window.open("/risk-map", "_blank", "noopener,noreferrer");
+        setPaywallOpen(false);
+        return;
+      }
+      setPayAmountRub(280);
+      setPromoNotice(null);
+      setPaywallOpen(true);
+    } catch {
+      setPayError("Не удалось проверить доступ. Попробуйте снова.");
+      setPaywallOpen(true);
+    } finally {
+      setPayLoading(false);
+    }
   }
 
   return (
@@ -177,7 +274,7 @@ export function CadastreInfoPanel({
       >
         <button
           type="button"
-          onClick={handleCheckRisksClick}
+          onClick={() => void handleCheckRisksClick()}
           className="inline-flex shrink-0 items-center justify-center rounded-full bg-geoblue px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600"
         >
           Проверить риски участка
@@ -193,6 +290,56 @@ export function CadastreInfoPanel({
           ).
         </p>
       </div>
+      {paywallOpen ? (
+        <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-slate-900/50 p-4" onMouseDown={(e) => {
+          if (e.target === e.currentTarget && !payLoading) setPaywallOpen(false);
+        }}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-soft ring-1 ring-slate-200">
+            <h4 className="text-base font-semibold text-slate-900">Оплата доступа к карте рисков</h4>
+            <p className="mt-1 text-sm text-slate-600">Тариф: разовая проверка участка — {payAmountRub} ₽.</p>
+            <button
+              type="button"
+              onClick={() => void handlePayClick()}
+              disabled={payLoading}
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-geoblue px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-60"
+            >
+              {payLoading ? "Переход..." : payAmountRub === 0 ? "Получить доступ бесплатно" : `Оплатить ${payAmountRub} ₽`}
+            </button>
+
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <p className="text-sm font-medium text-slate-800">Есть промокод?</p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="Введите промокод"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-geoblue"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleApplyPromo()}
+                  disabled={payLoading || promoCode.trim().length < 3}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Применить
+                </button>
+              </div>
+              {promoNotice ? <p className="mt-2 text-sm text-emerald-700">{promoNotice}</p> : null}
+            </div>
+
+            {payError ? <p className="mt-3 text-sm text-red-600">{payError}</p> : null}
+            <button
+              type="button"
+              disabled={payLoading}
+              onClick={() => setPaywallOpen(false)}
+              className="mt-4 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-60"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

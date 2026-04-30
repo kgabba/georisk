@@ -56,6 +56,14 @@ services:
       NSPD_HTTP_PROXY: ${NSPD_HTTP_PROXY:-}
       GEE_PROJECT_ID: ${GEE_PROJECT_ID:-}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gee_sa.json}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      ACCESS_GRANT_DAYS: ${ACCESS_GRANT_DAYS:-30}
+      GUEST_SESSION_TTL_HOURS: ${GUEST_SESSION_TTL_HOURS:-10}
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
+      YOOKASSA_RETURN_URL: ${YOOKASSA_RETURN_URL:-}
+      YOOKASSA_WEBHOOK_ENABLED: ${YOOKASSA_WEBHOOK_ENABLED:-true}
+      PAYMENT_DEV_MOCK: ${PAYMENT_DEV_MOCK:-false}
     volumes:
       # Ключ сервисного аккаунта EE (файл в ./secrets/, не в git). См. README «Google Earth Engine».
       - ./secrets/google-earth-engine-sa.json:/run/secrets/gee_sa.json:ro

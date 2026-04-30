@@ -22,6 +22,10 @@ services:
     networks:
       - webnet
 
+  api:
+    environment:
+      REPORT_DISABLE_CACHE: "true"
+
 volumes:
   web_dev_node_modules:
   web_dev_next:

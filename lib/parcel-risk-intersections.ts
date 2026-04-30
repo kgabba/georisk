@@ -20,10 +20,8 @@ export function parcelRiskLabelsIntersecting(data: RiskMapOverlaysResponse): str
   const parcel = data.parcel;
   const items: string[] = [];
 
-  if (
-    featureCollectionIntersectsParcel(parcel, data.powerLines) ||
-    featureCollectionIntersectsParcel(parcel, data.powerBuffers)
-  ) {
+  // Риск ЛЭП считаем только по охранной (буферной) зоне, а не по линии как таковой.
+  if (featureCollectionIntersectsParcel(parcel, data.powerBuffers)) {
     items.push("Охранная зона объектов электросетевого хозяйства");
   }
   if (featureCollectionIntersectsParcel(parcel, data.waterBuffers)) {
